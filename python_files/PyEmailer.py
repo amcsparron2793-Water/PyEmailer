@@ -137,11 +137,12 @@ if __name__ == "__main__":
     module_name = __file__.split('\\')[-1].split('.py')[0]
     logger = create_logger(project_name=module_name)
 
-    emailer = PyEmailer(display_window=True, logger=logger, send_emails=True, auto_send=True)
+    emailer = PyEmailer(display_window=True, logger=logger, send_emails=False, auto_send=False)
     r_dict = {
         "recipient": "",
         "subject": "This is an auto generated email",
-        "text": "&emsp; If your reading this, then it worked!"
+        "text": "Dear TEST,<br>"
+                "&emsp; If your reading this, then it worked!"
     }
     # &emsp; is the tab character for emails
     emailer.SetupEmail(**r_dict)  # recipient="amcsparron@albanyny.gov", subject="test subject", text="test_body")
