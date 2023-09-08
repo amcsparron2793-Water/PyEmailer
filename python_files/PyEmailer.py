@@ -17,10 +17,17 @@ class EmailerNotSetupError(Exception):
 
 
 class PyEmailer:
-    def __init__(self, logger: Logger, display_window: bool,
-                 send_emails: bool, auto_send: bool = False,
+    def __init__(self, display_window: bool,
+                 send_emails: bool, logger: Logger = None,
+                 auto_send: bool = False,
                  email_app_name: str = 'outlook.application'):
-        self._logger = logger
+
+        if logger:
+            self._logger = logger
+        else:
+            self._logger = Logger("DUMMY")
+            print("Dummy logger in use!")
+
         self.email_app_name = email_app_name
 
         self.display_window = display_window
