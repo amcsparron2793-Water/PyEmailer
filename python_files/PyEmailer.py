@@ -137,7 +137,7 @@ if __name__ == "__main__":
     module_name = __file__.split('\\')[-1].split('.py')[0]
     logger = create_logger(project_name=module_name)
 
-    emailer = PyEmailer(logger, display_window=False, send_emails=True, auto_send=True)
+    emailer = PyEmailer(display_window=True, logger=logger, send_emails=True, auto_send=True)
     r_dict = {
         "recipient": "",
         "subject": "This is an auto generated email",
