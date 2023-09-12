@@ -28,7 +28,7 @@ class PyEmailer:
             self._logger = logger
         else:
             self._logger = Logger("DUMMY")
-            print("Dummy logger in use!")
+            # print("Dummy logger in use!")
 
         self.email_app_name = email_app_name
 
@@ -59,7 +59,7 @@ class PyEmailer:
             self._subject = self.email.Subject
             self._text = self.email.HtmlBody
 
-            print("New email set up successfully.")
+            # print("New email set up successfully.")
             self._logger.info("New email set up successfully. see debug for details")
             self._logger.debug(f"Email recipient {recipient}, Subject {subject}, Message body {text}")
             self._setup_was_run = True
@@ -70,7 +70,7 @@ class PyEmailer:
             raise e
 
     def _display(self):
-        print(f"Displaying the email in {self.email_app_name}, this window might open minimized.")
+        # print(f"Displaying the email in {self.email_app_name}, this window might open minimized.")
         self._logger.info(f"Displaying the email in {self.email_app_name}, this window might open minimized.")
         try:
             self.email.Display(True)
@@ -81,7 +81,7 @@ class PyEmailer:
     def _send(self):
         try:
             self.email.Send()
-            print(f"Mail sent to {self._recipient}")
+            # print(f"Mail sent to {self._recipient}")
             self._logger.info(f"Mail successfully sent to {self._recipient}")
         except Exception as e:
             self._logger.error(e, exc_info=True)
@@ -106,12 +106,12 @@ class PyEmailer:
 
     def SendOrDisplay(self):
         if self._setup_was_run:
-            print(f"Ready to send/display mail to/for {self._recipient}...")
+            # print(f"Ready to send/display mail to/for {self._recipient}...")
             self._logger.info(f"Ready to send/display mail to/for {self._recipient}...")
             if self.send_emails and self.display_window:
                 send_and_display_warning = ("Sending email while also displaying the email "
                                             "in the app is not possible. Defaulting to Display only")
-                print(send_and_display_warning)
+                # print(send_and_display_warning)
                 self._logger.warning(send_and_display_warning)
                 self.send_emails = False
                 self.display_window = True
@@ -129,7 +129,7 @@ class PyEmailer:
                 both_disabled_warning = ("Both sending and displaying the email are disabled. "
                                          "No errors were encountered.")
                 self._logger.warning(both_disabled_warning)
-                print(both_disabled_warning)
+                # print(both_disabled_warning)
         else:
             try:
                 raise EmailerNotSetupError("Setup has not been run, sending or displaying an email cannot occur.")
@@ -139,11 +139,9 @@ class PyEmailer:
 
 
 if __name__ == "__main__":
-    from CreateLogger import create_logger
     module_name = __file__.split('\\')[-1].split('.py')[0]
-    logger = create_logger(project_name=module_name)
 
-    emailer = PyEmailer(display_window=False, logger=logger, send_emails=True, auto_send=False)
+    """emailer = PyEmailer(display_window=False, send_emails=True, auto_send=False)
 
     r_dict = {
         "subject": f"TEST: Your TEST "
@@ -163,4 +161,4 @@ if __name__ == "__main__":
     }
     # &emsp; is the tab character for emails
     emailer.SetupEmail(**r_dict)  # recipient="amcsparron@albanyny.gov", subject="test subject", text="test_body")
-    emailer.SendOrDisplay()
+    emailer.SendOrDisplay()"""
