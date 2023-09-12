@@ -1,6 +1,6 @@
 #! python3
 """
-PyEmailer.py
+PyEmailerAJM.py
 
 install win32 with pip install pywin32
 """

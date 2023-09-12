@@ -1,9 +1,9 @@
 from setuptools import setup
 
 setup(
-    name='PyEmailer',
+    name='PyEmailerAJM',
     version='0.1',
-    packages=['PyEmailer'],
+    packages=['PyEmailerAJM'],
     url='https://github.com/amcsparron2793-Water/PyEmailer',
     download_url='https://github.com/amcsparron2793-Water/PyEmailer/archive/refs/tags/0.1.tar.gz',
     keywords=["Outlook", "Email", "Automation"],
