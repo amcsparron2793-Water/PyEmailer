@@ -1,8 +1,8 @@
-# <u>PyEmailer</u>
+# <u>PyEmailerAJM</u>
 ### <i>Makes automating Outlook emails quick and easy</i>
 
-- PyEmailer uses pywin32 to automate the sending of Outlook emails.
+- PyEmailerAJM uses pywin32 to automate the sending of Outlook emails.
 
 <b>Import</b>
 
-import SQLite3HelperClass using `from PyEmailer import PyEmailer`
+import PyEmailer class using `from PyEmailerAJM.PyEmailerAJM import PyEmailer`
