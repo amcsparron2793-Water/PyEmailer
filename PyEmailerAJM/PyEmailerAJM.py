@@ -4,6 +4,7 @@ PyEmailerAJM.py
 
 install win32 with pip install pywin32
 """
+from os.path import isfile, abspath, isabs
 
 # imports
 
@@ -48,9 +49,42 @@ class PyEmailer:
             self._logger.error(e, exc_info=True)
             raise e
 
-    def SetupEmail(self, recipient: str, subject: str, text: str):
+    def SetupEmail(self, recipient: str, subject: str, text: str, attachments: list = None):
+        def _validate_attachments():
+            if attachments:
+                if isinstance(attachments, list):
+                    for a in attachments:
+                        if isfile(a):
+                            if isabs(a):
+                                self.email.Attachments.Add(a)
+                            else:
+                                a = abspath(a)
+                                if isfile(a):
+                                    self.email.Attachments.Add(a)
+                                else:
+                                    try:
+                                        raise FileNotFoundError(f"file {a} could not be attached.")
+                                    except FileNotFoundError as e:
+                                        self._logger.error(e, exc_info=True)
+                                        raise e
+                        else:
+                            try:
+                                raise FileNotFoundError(f"file {a} could not be attached.")
+                            except FileNotFoundError as e:
+                                self._logger.error(e, exc_info=True)
+                                raise e
+                else:
+                    try:
+                        raise TypeError("attachments attribute must be a list")
+                    except TypeError as e:
+                        self._logger.error(e, exc_info=True)
+                        raise e
+            else:
+                self._logger.debug("no attachments detected")
+
         try:
             # set the params
+            _validate_attachments()
             self.email.To = recipient
             self.email.Subject = subject
             self.email.HtmlBody = text
@@ -146,18 +180,9 @@ if __name__ == "__main__":
     r_dict = {
         "subject": f"TEST: Your TEST "
                    f"agreement expires in 30 days or less!",
-        "text": f"To whom it may concern,<br>"
-                f"&emsp; Your TEST "
-                f"agreement <b>expires in 30 days or less (your due date is TEST)</b>. "
-                f"Please renew the aforementioned by dropping off a hard copy to "
-                f"the Albany Water Department at 10 N Enterprise Dr.<br>"
-                f"Thank You,<br>"
-                f"AWD"
-                f"<br>"
-                f"<br>"
-                f"<br>"
-                f"This is an automated email, Please do not respond directly to it.",
-        "recipient": ''
+        "text": "testing to see if the attachment works",
+        "recipient": 'pbehnke@albanyny.gov',
+        "attachments": []
     }
     # &emsp; is the tab character for emails
     emailer.SetupEmail(**r_dict)  # recipient="amcsparron@albanyny.gov", subject="test subject", text="test_body")
