@@ -2,10 +2,10 @@ from setuptools import setup
 
 setup(
     name='PyEmailerAJM',
-    version='0.1',
+    version='1.0',
     packages=['PyEmailerAJM'],
     url='https://github.com/amcsparron2793-Water/PyEmailer',
-    download_url='https://github.com/amcsparron2793-Water/PyEmailer/archive/refs/tags/0.1.tar.gz',
+    download_url='https://github.com/amcsparron2793-Water/PyEmailer/archive/refs/tags/1.0.tar.gz',
     keywords=["Outlook", "Email", "Automation"],
     install_requires=['pywin32'],
     license='MIT License',
