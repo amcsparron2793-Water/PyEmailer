@@ -4,7 +4,7 @@ PyEmailerAJM.py
 
 install win32 with pip install pywin32
 """
-from os.path import isfile, abspath, isabs
+from os.path import isfile, abspath, isabs, join
 
 # imports
 
@@ -41,13 +41,65 @@ class PyEmailer:
         self._recipient = None
         self._subject = None
         self._text = None
+        self.read_folder = None
 
         try:
             self.email_app = win32.Dispatch(self.email_app_name)
+            self._mapi_ns = self.email_app.GetNamespace('MAPI')
             self.email = self.email_app.CreateItem(0)
         except com_error as e:
             self._logger.error(e, exc_info=True)
             raise e
+
+    def _GetReadFolder(self, email_dir_index: int = 6):
+        # 6 = inbox
+        self.read_folder = self._mapi_ns.GetDefaultFolder(email_dir_index)
+        return self.read_folder
+
+    def GetMessages(self, folder_index=None):
+        if isinstance(folder_index, int):
+            self.read_folder = self._GetReadFolder(folder_index)
+        elif not folder_index and self.read_folder:
+            pass
+        elif not folder_index:
+            self.read_folder = self._GetReadFolder()
+        else:
+            try:
+                raise TypeError("folder_index must be an integer or self.read_folder must be defined")
+            except TypeError as e:
+                self._logger.error(e, exc_info=True)
+                raise e
+        return self.read_folder.Items
+
+    def GetEmailMessageBody(self, msg):
+        """message = messages.GetLast()"""
+        body_content = msg.body
+        if body_content:
+            return body_content
+        else:
+            try:
+                raise ValueError("This message has no body.")
+            except ValueError as e:
+                self._logger.error(e, exc_info=True)
+                raise e
+
+    def FindMsgBySubject(self, subject: str) -> list:
+        matched_messages = []
+        for message in self.GetMessages():
+            if message.Subject == subject:
+                matched_messages.append(message)
+        return matched_messages
+
+    def SaveAllEmailAttachments(self, msg, save_dir_path):
+        attachments = msg.Attachments
+        for attachment in attachments:
+            full_save_path = join(save_dir_path, str(attachment))
+            try:
+                attachment.SaveAsFile(full_save_path)
+                self._logger.debug(f"{full_save_path} saved from email with subject {msg.subject}")
+            except Exception as e:
+                self._logger.error(e, exc_info=True)
+                raise e
 
     def SetupEmail(self, recipient: str, subject: str, text: str, attachments: list = None):
         def _validate_attachments():
