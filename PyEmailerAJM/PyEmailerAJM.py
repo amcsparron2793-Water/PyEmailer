@@ -83,11 +83,23 @@ class PyEmailer:
                 self._logger.error(e, exc_info=True)
                 raise e
 
-    def FindMsgBySubject(self, subject: str) -> list:
+    def FindMsgBySubject(self, subject: str, forwarded_message_match: bool = True) -> list:
+        """Matches the message.Subject string to the subject attr string and returns a list of messages.
+        If forward_message_match is True than messages are matched without
+        regard to if they start with 'FW:' or 'FWD:'"""
         matched_messages = []
         for message in self.GetMessages():
-            if message.Subject == subject:
-                matched_messages.append(message)
+            if forwarded_message_match:
+                if (message.Subject == subject or
+                        (message.Subject.startswith('FW:')
+                         and message.Subject.split('FW:')[1].strip() == subject) or
+                        (message.Subject.startswith('FWD:')
+                         and message.Subject.split('FWD:')[1].strip() == subject)):
+                    matched_messages.append(message)
+            else:
+                if message.Subject == subject:
+                    matched_messages.append(message)
+
         return matched_messages
 
     def SaveAllEmailAttachments(self, msg, save_dir_path):
@@ -233,9 +245,9 @@ if __name__ == "__main__":
         "subject": f"TEST: Your TEST "
                    f"agreement expires in 30 days or less!",
         "text": "testing to see if the attachment works",
-        "recipient": 'pbehnke@albanyny.gov',
+        "recipient": 'test',
         "attachments": []
     }
     # &emsp; is the tab character for emails
-    emailer.SetupEmail(**r_dict)  # recipient="amcsparron@albanyny.gov", subject="test subject", text="test_body")
+    emailer.SetupEmail(**r_dict)  # recipient="test", subject="test subject", text="test_body")
     emailer.SendOrDisplay()"""
