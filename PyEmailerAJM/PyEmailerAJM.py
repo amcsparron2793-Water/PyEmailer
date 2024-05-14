@@ -20,6 +20,9 @@ class EmailerNotSetupError(Exception):
 
 
 class PyEmailer:
+    # the email tab_char
+    tab_char = '&emsp;'
+
     def __init__(self, display_window: bool,
                  send_emails: bool, logger: Logger = None,
                  auto_send: bool = False,
@@ -83,7 +86,8 @@ class PyEmailer:
                 self._logger.error(e, exc_info=True)
                 raise e
 
-    def FindMsgBySubject(self, subject: str, forwarded_message_match: bool = True) -> list:
+    def FindMsgBySubject(self, subject: str, forwarded_message_match: bool = True,
+                         reply_msg_match: bool = True) -> list:
         """Matches the message.Subject string to the subject attr string and returns a list of messages.
         If forward_message_match is True than messages are matched without
         regard to if they start with 'FW:' or 'FWD:'"""
@@ -95,6 +99,11 @@ class PyEmailer:
                          and message.Subject.split('FW:')[1].strip() == subject) or
                         (message.Subject.startswith('FWD:')
                          and message.Subject.split('FWD:')[1].strip() == subject)):
+                    matched_messages.append(message)
+            if reply_msg_match:
+                if (message.Subject == subject or
+                        (message.Subject.startswith('RE:')
+                         and message.Subject.split('RE:')[1].strip() == subject)):
                     matched_messages.append(message)
             else:
                 if message.Subject == subject:
