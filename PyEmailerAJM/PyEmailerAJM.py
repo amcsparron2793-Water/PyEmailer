@@ -4,7 +4,8 @@ PyEmailerAJM.py
 
 install win32 with pip install pywin32
 """
-from os.path import isfile, abspath, isabs, join
+from os import environ
+from os.path import isfile, abspath, isabs, join, isdir
 
 # imports
 
@@ -22,9 +23,12 @@ class EmailerNotSetupError(Exception):
 class PyEmailer:
     # the email tab_char
     tab_char = '&emsp;'
+    signature_dir_path = join((environ['USERPROFILE']),
+                              'AppData\\Roaming\\Microsoft\\Signatures\\')
 
     def __init__(self, display_window: bool,
                  send_emails: bool, logger: Logger = None,
+                 email_sig_filename: str = None,
                  auto_send: bool = False,
                  email_app_name: str = 'outlook.application'):
 
@@ -53,6 +57,37 @@ class PyEmailer:
         except com_error as e:
             self._logger.error(e, exc_info=True)
             raise e
+
+        self._email_signature = None
+        self.email_sig_filename = email_sig_filename
+
+    @property
+    def email_signature(self):
+        return self._email_signature
+
+    @email_signature.getter
+    def email_signature(self):
+        signature_full_path = join(self.signature_dir_path, self.email_sig_filename)
+        if isdir(self.signature_dir_path):
+            pass
+        else:
+            try:
+                raise NotADirectoryError(f"{self.signature_dir_path} does not exist.")
+            except NotADirectoryError as e:
+                self._logger.warning(e)
+                self._email_signature = None
+
+        if isfile(signature_full_path):
+            with open(signature_full_path, 'r', encoding='utf-16') as f:
+                self._email_signature = f.read().strip()
+        else:
+            try:
+                raise FileNotFoundError(f"{signature_full_path} does not exist.")
+            except FileNotFoundError as e:
+                self._logger.warning(e)
+                self._email_signature = None
+
+        return self._email_signature
 
     def _GetReadFolder(self, email_dir_index: int = 6):
         # 6 = inbox

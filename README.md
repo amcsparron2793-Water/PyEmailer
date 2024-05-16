@@ -3,8 +3,13 @@
 
 - PyEmailerAJM uses pywin32 to automate the sending/reading of Outlook emails.
 
-<b>Import</b>
+**Import**
 
-import PyEmailer class using `from PyEmailerAJM.PyEmailerAJM import PyEmailer`
+- import PyEmailer class using `from PyEmailerAJM.PyEmailerAJM import PyEmailer`
 
-see [OutlookPywin32Commands.xlsx](OutlookPywin32Commands.xlsx) for list of commands that can be used with a message object.
+**Notes**
+
+- see [OutlookPywin32Commands.xlsx](OutlookPywin32Commands.xlsx) for list of commands that can be used with a message object.
+
+- Email signature **text** can now be added as of v1.4
+  - Assuming the signature *.txt file is found in `%APPDATA%/Microsoft/Signatures/`
