@@ -60,10 +60,12 @@ class PyEmailer:
 
         try:
             if self.email_app_name.lower().startswith('outlook'):
-                self.email_app = win32.Dispatch(self.email_app_name).GetNamespace('MAPI')
+                self.email_app = win32.Dispatch(self.email_app_name)
+                self.namespace = self.email_app.GetNamespace('MAPI')
                 self._logger.debug("MAPI namespace in use.")
             else:
                 self.email_app = win32.Dispatch(self.email_app_name)
+                self.namespace = None
             self.email = self.email_app.CreateItem(0)
         except com_error as e:
             self._logger.error(e, exc_info=True)
@@ -77,7 +79,7 @@ class PyEmailer:
     def current_user_email(self):
         if self.email_app_name.lower().startswith('outlook'):
             self._current_user_email = (
-                self.email_app.Application.Session.CurrentUser.AddressEntry.GetExchangeUser().PrimarySmtpAddress)
+                self.namespace.Application.Session.CurrentUser.AddressEntry.GetExchangeUser().PrimarySmtpAddress)
         return self._current_user_email
 
     @current_user_email.setter
