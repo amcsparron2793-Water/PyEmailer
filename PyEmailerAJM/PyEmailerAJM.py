@@ -20,11 +20,17 @@ class EmailerNotSetupError(Exception):
     ...
 
 
+class DisplayManualQuit(Exception):
+    ...
+
+
 class PyEmailer:
     # the email tab_char
     tab_char = '&emsp;'
     signature_dir_path = join((environ['USERPROFILE']),
                               'AppData\\Roaming\\Microsoft\\Signatures\\')
+
+    DisplayEmailSendTrackingWarning = "THIS TYPE OF SEND CANNOT BE DETECTED FOR SEND SUCCESS AUTOMATICALLY."
 
     def __init__(self, display_window: bool,
                  send_emails: bool, logger: Logger = None,
@@ -59,6 +65,7 @@ class PyEmailer:
             raise e
 
         self._email_signature = None
+        self._send_success = False
         self.email_sig_filename = email_sig_filename
 
     @property
@@ -88,6 +95,37 @@ class PyEmailer:
                 self._email_signature = None
 
         return self._email_signature
+
+    @property
+    def send_success(self):
+        return self._send_success
+
+    @send_success.setter
+    def send_success(self, value):
+        self._send_success = value
+
+    def _display_tracking_warning_confirm(self):
+        while True:
+            q = input(f"{self.DisplayEmailSendTrackingWarning}. Do you understand? (y/n): ").lower().strip()
+            if q == 'y':
+                self._logger.warning(self.DisplayEmailSendTrackingWarning)
+                return True
+            elif q == 'n':
+                return False
+            else:
+                print("Please respond with 'y' or 'n'.")
+
+    def display_tracker_check(self) -> bool:
+        if self.display_window:
+            c = self._display_tracking_warning_confirm()
+            if c:
+                return c
+            else:
+                try:
+                    raise DisplayManualQuit("User cancelled operation due to DisplayTrackingWarning.")
+                except DisplayManualQuit as e:
+                    self._logger.error(e, exc_info=True)
+                    raise e
 
     def _GetReadFolder(self, email_dir_index: int = 6):
         # 6 = inbox
@@ -125,20 +163,30 @@ class PyEmailer:
                          reply_msg_match: bool = True) -> list:
         """Matches the message.Subject string to the subject attr string and returns a list of messages.
         If forward_message_match is True than messages are matched without
-        regard to if they start with 'FW:' or 'FWD:'"""
+        regard to if they start with 'FW:' or 'FWD:'
+
+        If reply_msg_match is True than messages are matched without
+        regard to if they start with 'RE:'
+        """
         matched_messages = []
+        subject = subject.lower().strip()
+        fw_str = 'FW:'.lower()
+        fwd_str = 'FWD:'.lower()
+        re_str = 'RE:'.lower()
+
         for message in self.GetMessages():
+            message.Subject = message.Subject.lower()
             if forwarded_message_match:
                 if (message.Subject == subject or
-                        (message.Subject.startswith('FW:')
-                         and message.Subject.split('FW:')[1].strip() == subject) or
-                        (message.Subject.startswith('FWD:')
-                         and message.Subject.split('FWD:')[1].strip() == subject)):
+                        (message.Subject.startswith(fw_str)
+                         and message.Subject.split(fw_str)[1].strip() == subject) or
+                        (message.Subject.startswith(fwd_str)
+                         and message.Subject.split(fwd_str)[1].strip() == subject)):
                     matched_messages.append(message)
             if reply_msg_match:
                 if (message.Subject == subject or
-                        (message.Subject.startswith('RE:')
-                         and message.Subject.split('RE:')[1].strip() == subject)):
+                        (message.Subject.startswith(re_str)
+                         and message.Subject.split(re_str)[1].strip() == subject)):
                     matched_messages.append(message)
             else:
                 if message.Subject == subject:
@@ -222,8 +270,10 @@ class PyEmailer:
 
     def _send(self):
         try:
+            self.send_success = False
             self.email.Send()
             # print(f"Mail sent to {self._recipient}")
+            self.send_success = True
             self._logger.info(f"Mail successfully sent to {self._recipient}")
         except Exception as e:
             self._logger.error(e, exc_info=True)
