@@ -14,6 +14,7 @@ import win32com.client as win32
 # This is installed as part of pywin32
 from pythoncom import com_error
 from logging import Logger
+from email_validator import validate_email, EmailNotValidError
 
 
 class EmailerNotSetupError(Exception):
@@ -50,6 +51,7 @@ class PyEmailer:
         self.auto_send = auto_send
         self.send_emails = send_emails
         self._setup_was_run = False
+        self._current_user_email = None
 
         self._recipient = None
         self._subject = None
@@ -57,8 +59,11 @@ class PyEmailer:
         self.read_folder = None
 
         try:
-            self.email_app = win32.Dispatch(self.email_app_name)
-            self._mapi_ns = self.email_app.GetNamespace('MAPI')
+            if self.email_app_name.lower().startswith('outlook'):
+                self.email_app = win32.Dispatch(self.email_app_name).GetNamespace('MAPI')
+                self._logger.debug("MAPI namespace in use.")
+            else:
+                self.email_app = win32.Dispatch(self.email_app_name)
             self.email = self.email_app.CreateItem(0)
         except com_error as e:
             self._logger.error(e, exc_info=True)
@@ -69,30 +74,50 @@ class PyEmailer:
         self.email_sig_filename = email_sig_filename
 
     @property
+    def current_user_email(self):
+        if self.email_app_name.lower().startswith('outlook'):
+            self._current_user_email = (
+                self.email_app.Application.Session.CurrentUser.AddressEntry.GetExchangeUser().PrimarySmtpAddress)
+        return self._current_user_email
+
+    @current_user_email.setter
+    def current_user_email(self, value):
+        try:
+            if validate_email(value, check_deliverability=False):
+                self._current_user_email = value
+        except EmailNotValidError as e:
+            self._logger.error(e, exc_info=True)
+            value = None
+        self._current_user_email = value
+
+    @property
     def email_signature(self):
         return self._email_signature
 
     @email_signature.getter
     def email_signature(self):
-        signature_full_path = join(self.signature_dir_path, self.email_sig_filename)
-        if isdir(self.signature_dir_path):
-            pass
-        else:
-            try:
-                raise NotADirectoryError(f"{self.signature_dir_path} does not exist.")
-            except NotADirectoryError as e:
-                self._logger.warning(e)
-                self._email_signature = None
+        if self.email_sig_filename:
+            signature_full_path = join(self.signature_dir_path, self.email_sig_filename)
+            if isdir(self.signature_dir_path):
+                pass
+            else:
+                try:
+                    raise NotADirectoryError(f"{self.signature_dir_path} does not exist.")
+                except NotADirectoryError as e:
+                    self._logger.warning(e)
+                    self._email_signature = None
 
-        if isfile(signature_full_path):
-            with open(signature_full_path, 'r', encoding='utf-16') as f:
-                self._email_signature = f.read().strip()
+            if isfile(signature_full_path):
+                with open(signature_full_path, 'r', encoding='utf-16') as f:
+                    self._email_signature = f.read().strip()
+            else:
+                try:
+                    raise FileNotFoundError(f"{signature_full_path} does not exist.")
+                except FileNotFoundError as e:
+                    self._logger.warning(e)
+                    self._email_signature = None
         else:
-            try:
-                raise FileNotFoundError(f"{signature_full_path} does not exist.")
-            except FileNotFoundError as e:
-                self._logger.warning(e)
-                self._email_signature = None
+            self._email_signature = None
 
         return self._email_signature
 
@@ -129,7 +154,7 @@ class PyEmailer:
 
     def _GetReadFolder(self, email_dir_index: int = 6):
         # 6 = inbox
-        self.read_folder = self._mapi_ns.GetDefaultFolder(email_dir_index)
+        self.read_folder = self.email_app.GetDefaultFolder(email_dir_index)
         return self.read_folder
 
     def GetMessages(self, folder_index=None):
