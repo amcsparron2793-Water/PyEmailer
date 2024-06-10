@@ -15,6 +15,7 @@ import win32com.client as win32
 from pythoncom import com_error
 from logging import Logger
 from email_validator import validate_email, EmailNotValidError
+import questionary
 
 
 class EmailerNotSetupError(Exception):
@@ -132,15 +133,23 @@ class PyEmailer:
         self._send_success = value
 
     def _display_tracking_warning_confirm(self):
-        while True:
-            q = input(f"{self.DisplayEmailSendTrackingWarning}. Do you understand? (y/n): ").lower().strip()
-            if q == 'y':
-                self._logger.warning(self.DisplayEmailSendTrackingWarning)
-                return True
-            elif q == 'n':
-                return False
-            else:
-                print("Please respond with 'y' or 'n'.")
+        # noinspection PyBroadException
+        try:
+            q = questionary.confirm(f"{self.DisplayEmailSendTrackingWarning}. Do you understand?",
+                                    default=False, auto_enter=False).ask()
+            return q
+        except Exception as e:
+            self._logger.warning(e)
+            self._logger.warning("Defaulting to basic y/n prompt.")
+            while True:
+                q = input(f"{self.DisplayEmailSendTrackingWarning}. Do you understand? (y/n): ").lower().strip()
+                if q == 'y':
+                    self._logger.warning(self.DisplayEmailSendTrackingWarning)
+                    return True
+                elif q == 'n':
+                    return False
+                else:
+                    print("Please respond with 'y' or 'n'.")
 
     def display_tracker_check(self) -> bool:
         if self.display_window:
@@ -307,6 +316,7 @@ class PyEmailer:
             raise e
 
     def _manual_send_loop(self):
+        # TODO: update to use questionary
         while True:
             yn = input("Send Mail? (y/n/q): ").lower()
             if yn == 'y':

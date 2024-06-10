@@ -1,1 +1,2 @@
-pywin32==306
+setuptools~=60.2.0
+questionary~=2.0.1
