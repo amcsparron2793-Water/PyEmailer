@@ -4,10 +4,9 @@ PyEmailerAJM.py
 
 install win32 with pip install pywin32
 """
+# imports
 from os import environ
 from os.path import isfile, abspath, isabs, join, isdir
-
-# imports
 
 # install win32 with pip install pywin32
 import win32com.client as win32
@@ -139,6 +138,8 @@ class PyEmailer:
                                     default=False, auto_enter=False).ask()
             return q
         except Exception as e:
+            # TODO: slated for removal
+            # this is here purely as a compatibility thing, to be taken out later.
             self._logger.warning(e)
             self._logger.warning("Defaulting to basic y/n prompt.")
             while True:
@@ -316,22 +317,41 @@ class PyEmailer:
             raise e
 
     def _manual_send_loop(self):
-        # TODO: update to use questionary
-        while True:
-            yn = input("Send Mail? (y/n/q): ").lower()
-            if yn == 'y':
+        try:
+            send = questionary.confirm("Send Mail?:", default=False).ask()
+            if send:
                 self._send()
-                break
-            elif yn == 'n':
+                return
+            elif not send:
                 self._logger.info(f"Mail not sent to {self._recipient}")
                 print(f"Mail not sent to {self._recipient}")
-                break
-            elif yn == 'q':
-                print("ok quitting!")
-                self._logger.warning("Quitting early due to user input.")
-                exit(-1)
-            else:
-                print("Please choose \'y\', \'n\' or \'q\'")
+                q = questionary.confirm("do you want to quit early?", default=False).ask()
+                if q:
+                    print("ok quitting!")
+                    self._logger.warning("Quitting early due to user input.")
+                    exit(-1)
+                else:
+                    return
+        except Exception as e:
+            # TODO: slated for removal
+            # this is here purely as a compatibility thing, to be taken out later.
+            self._logger.warning(e)
+            self._logger.warning("defaulting to basic input style...")
+            while True:
+                yn = input("Send Mail? (y/n/q): ").lower()
+                if yn == 'y':
+                    self._send()
+                    break
+                elif yn == 'n':
+                    self._logger.info(f"Mail not sent to {self._recipient}")
+                    print(f"Mail not sent to {self._recipient}")
+                    break
+                elif yn == 'q':
+                    print("ok quitting!")
+                    self._logger.warning("Quitting early due to user input.")
+                    exit(-1)
+                else:
+                    print("Please choose \'y\', \'n\' or \'q\'")
 
     def SendOrDisplay(self):
         if self._setup_was_run:
