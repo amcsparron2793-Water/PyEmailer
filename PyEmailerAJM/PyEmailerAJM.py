@@ -15,6 +15,8 @@ from pythoncom import com_error
 from logging import Logger
 from email_validator import validate_email, EmailNotValidError
 import questionary
+# this is usually thrown when questionary is used in the dev/Non Win32 environment
+from prompt_toolkit.output.win32 import NoConsoleScreenBufferError
 
 
 class EmailerNotSetupError(Exception):
@@ -332,7 +334,9 @@ class PyEmailer:
                     exit(-1)
                 else:
                     return
-        except Exception as e:
+        except com_error as e:
+            self._logger.error(e, exc_info=True)
+        except NoConsoleScreenBufferError as e:
             # TODO: slated for removal
             # this is here purely as a compatibility thing, to be taken out later.
             self._logger.warning(e)
