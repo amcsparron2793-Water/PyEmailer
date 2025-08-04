@@ -7,6 +7,7 @@ install win32 with pip install pywin32
 # imports
 from os import environ
 from os.path import isfile, abspath, isabs, join, isdir
+from tempfile import gettempdir
 
 # install win32 with pip install pywin32
 import win32com.client as win32
@@ -17,6 +18,7 @@ from email_validator import validate_email, EmailNotValidError
 import questionary
 # this is usually thrown when questionary is used in the dev/Non Win32 environment
 from prompt_toolkit.output.win32 import NoConsoleScreenBufferError
+from PyEmailerAJM import deprecated
 
 
 class EmailerNotSetupError(Exception):
@@ -34,6 +36,14 @@ class PyEmailer:
                               'AppData\\Roaming\\Microsoft\\Signatures\\')
 
     DisplayEmailSendTrackingWarning = "THIS TYPE OF SEND CANNOT BE DETECTED FOR SEND SUCCESS AUTOMATICALLY."
+
+    INBOX_ID = 6
+    SENT_ITEMS_ID = 5
+    DRAFTS_ID = 16
+    DELETED_ITEMS_ID = 3
+    OUTBOX_ID = 4
+
+    DEFAULT_TEMP_SAVE_PATH = gettempdir()
 
     def __init__(self, display_window: bool,
                  send_emails: bool, logger: Logger = None,
@@ -166,9 +176,9 @@ class PyEmailer:
                     self._logger.error(e, exc_info=True)
                     raise e
 
-    def _GetReadFolder(self, email_dir_index: int = 6):
+    def _GetReadFolder(self, email_dir_index: int = INBOX_ID):
         # 6 = inbox
-        self.read_folder = self.email_app.GetDefaultFolder(email_dir_index)
+        self.read_folder = self.namespace.GetDefaultFolder(email_dir_index)
         return self.read_folder
 
     def GetMessages(self, folder_index=None):
@@ -198,40 +208,69 @@ class PyEmailer:
                 self._logger.error(e, exc_info=True)
                 raise e
 
+    @deprecated("use find_messages_by_subject instead")
     def FindMsgBySubject(self, subject: str, forwarded_message_match: bool = True,
-                         reply_msg_match: bool = True) -> list:
-        """Matches the message.Subject string to the subject attr string and returns a list of messages.
-        If forward_message_match is True than messages are matched without
-        regard to if they start with 'FW:' or 'FWD:'
+                         reply_msg_match: bool = True, partial_match_ok: bool = False):
+        return self.find_messages_by_subject(subject, include_fw=forwarded_message_match,
+                                             include_re=reply_msg_match,
+                                             partial_match_ok=partial_match_ok)
 
-        If reply_msg_match is True than messages are matched without
-        regard to if they start with 'RE:'
-        """
+    def find_messages_by_subject(self, search_subject: str, include_fw: bool = True, include_re: bool = True,
+                                 partial_match_ok: bool = False) -> list:
+        """Returns a list of messages matching the given subject, ignoring prefixes based on flags."""
+
+        # Constants for prefixes
+        FW_PREFIXES = ['FW:', 'FWD:']
+        RE_PREFIX = 'RE:'
+
+        # Normalize search subject
+        normalized_subject = self._normalize_subject(search_subject)
         matched_messages = []
-        subject = subject.lower().strip()
-        fw_str = 'FW:'.lower()
-        fwd_str = 'FWD:'.lower()
-        re_str = 'RE:'.lower()
+        print("partial match ok: ", partial_match_ok)
 
         for message in self.GetMessages():
-            message.Subject = message.Subject.lower()
-            if forwarded_message_match:
-                if (message.Subject == subject or
-                        (message.Subject.startswith(fw_str)
-                         and message.Subject.split(fw_str)[1].strip() == subject) or
-                        (message.Subject.startswith(fwd_str)
-                         and message.Subject.split(fwd_str)[1].strip() == subject)):
-                    matched_messages.append(message)
-            if reply_msg_match:
-                if (message.Subject == subject or
-                        (message.Subject.startswith(re_str)
-                         and message.Subject.split(re_str)[1].strip() == subject)):
-                    matched_messages.append(message)
-            else:
-                if message.Subject == subject:
-                    matched_messages.append(message)
+            normalized_message_subject = self._normalize_subject(message.Subject)
+
+            if (self._is_exact_match(normalized_message_subject, normalized_subject) or
+                    (partial_match_ok and self._is_partial_match(normalized_message_subject,
+                                                                 normalized_subject))):
+                matched_messages.append(message)
+                continue
+
+            if include_fw and self._matches_prefix(normalized_message_subject, FW_PREFIXES, normalized_subject,
+                                                   partial_match_ok):
+                matched_messages.append(message)
+                continue
+
+            if include_re and self._matches_prefix(normalized_message_subject, [RE_PREFIX], normalized_subject,
+                                                   partial_match_ok):
+                matched_messages.append(message)
 
         return matched_messages
+
+    @staticmethod
+    def _normalize_subject(subject: str) -> str:
+        """Normalize the given subject by converting to lowercase and stripping whitespace."""
+        return subject.lower().strip()
+
+    def _matches_prefix(self, message_subject: str, prefixes: list, search_subject: str,
+                        partial_match_ok: bool = False) -> bool:
+        """Checks if the message subject matches the search subject after removing a prefix."""
+        for prefix in prefixes:
+            if message_subject.startswith(prefix.lower()):
+                stripped_subject = message_subject.split(prefix.lower(), 1)[1].strip()
+                return (self._is_exact_match(stripped_subject, search_subject) if not partial_match_ok
+                        else self._is_partial_match(stripped_subject, search_subject))
+        return False
+
+    @staticmethod
+    def _is_exact_match(message_subject: str, search_subject: str) -> bool:
+        """Checks if the subject matches exactly."""
+        return message_subject == search_subject
+
+    @staticmethod
+    def _is_partial_match(message_subject: str, search_subject: str) -> bool:
+        return search_subject in message_subject
 
     def SaveAllEmailAttachments(self, msg, save_dir_path):
         attachments = msg.Attachments
