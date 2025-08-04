@@ -4,8 +4,8 @@ PyEmailerAJM.py
 
 install win32 with pip install pywin32
 """
-from abc import abstractmethod
 # imports
+from abc import abstractmethod
 from os import environ
 from os.path import isfile, abspath, isabs, join, isdir
 from tempfile import gettempdir
@@ -20,38 +20,9 @@ from email_validator import validate_email, EmailNotValidError
 import questionary
 # this is usually thrown when questionary is used in the dev/Non Win32 environment
 from prompt_toolkit.output.win32 import NoConsoleScreenBufferError
-import warnings
-import functools
 
-
-def deprecated(reason: str = ""):
-    """
-    Decorator that marks a function or method as deprecated.
-
-    :param reason: Optional message to explain what to use instead
-                   or when the feature will be removed.
-    """
-
-    def decorator(func):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            message = f"Function '{func.__name__}' is deprecated."
-            if reason:
-                message += f" {reason}"
-            warnings.warn(message, category=DeprecationWarning, stacklevel=2)
-            return func(*args, **kwargs)
-
-        return wrapper
-
-    return decorator
-
-
-class EmailerNotSetupError(Exception):
-    ...
-
-
-class DisplayManualQuit(Exception):
-    ...
+from errs import *
+from helpers import BasicEmailFolderChoices, deprecated
 
 
 class _SubjectSearcher:
@@ -125,13 +96,8 @@ class PyEmailer(_SubjectSearcher):
 
     DisplayEmailSendTrackingWarning = "THIS TYPE OF SEND CANNOT BE DETECTED FOR SEND SUCCESS AUTOMATICALLY."
 
-    INBOX_ID = 6
-    SENT_ITEMS_ID = 5
-    DRAFTS_ID = 16
-    DELETED_ITEMS_ID = 3
-    OUTBOX_ID = 4
-
     DEFAULT_TEMP_SAVE_PATH = gettempdir()
+    VALID_EMAIL_FOLDER_CHOICES = [x for x in BasicEmailFolderChoices]
 
     def __init__(self, display_window: bool,
                  send_emails: bool, logger: Logger = None,
@@ -264,10 +230,17 @@ class PyEmailer(_SubjectSearcher):
                     self._logger.error(e, exc_info=True)
                     raise e
 
-    def _GetReadFolder(self, email_dir_index: int = INBOX_ID):
+    def _GetReadFolder(self, email_dir_index: int = BasicEmailFolderChoices.INBOX):
         # 6 = inbox
-        self.read_folder = self.namespace.GetDefaultFolder(email_dir_index)
-        return self.read_folder
+        if email_dir_index in self.__class__.VALID_EMAIL_FOLDER_CHOICES:
+            self.read_folder = self.namespace.GetDefaultFolder(email_dir_index)
+            return self.read_folder
+        else:
+            try:
+                raise ValueError(f"email_dir_index must be one of {self.__class__.VALID_EMAIL_FOLDER_CHOICES}")
+            except ValueError as e:
+                self._logger.error(e, exc_info=True)
+                raise e
 
     def GetMessages(self, folder_index=None):
         if isinstance(folder_index, int):
@@ -464,10 +437,10 @@ class PyEmailer(_SubjectSearcher):
 if __name__ == "__main__":
     module_name = __file__.split('\\')[-1].split('.py')[0]
 
-    emailer = PyEmailer(display_window=False, send_emails=True, auto_send=False)
-
-    x = emailer.find_messages_by_subject("Timecard", partial_match_ok=False, include_re=False)
-    print([m.Subject for m in x])
+    # emailer = PyEmailer(display_window=False, send_emails=True, auto_send=False)
+    #
+    # x = emailer.find_messages_by_subject("Timecard", partial_match_ok=False, include_re=False)
+    # print([m.Subject for m in x])
 
     # r_dict = {
     #     "subject": f"TEST: Your TEST "
