@@ -103,7 +103,8 @@ class PyEmailer(_SubjectSearcher):
                  send_emails: bool, logger: Logger = None,
                  email_sig_filename: str = None,
                  auto_send: bool = False,
-                 email_app_name: str = 'outlook.application'):
+                 email_app_name: str = 'outlook.application',
+                 namespace_name: str = 'MAPI'):
 
         if logger:
             self._logger = logger
@@ -112,6 +113,7 @@ class PyEmailer(_SubjectSearcher):
             # print("Dummy logger in use!")
 
         self.email_app_name = email_app_name
+        self.namespace_name = namespace_name
 
         self.display_window = display_window
         self.auto_send = auto_send
@@ -124,18 +126,7 @@ class PyEmailer(_SubjectSearcher):
         self._text = None
         self.read_folder = None
 
-        try:
-            if self.email_app_name.lower().startswith('outlook'):
-                self.email_app = win32.Dispatch(self.email_app_name)
-                self.namespace = self.email_app.GetNamespace('MAPI')
-                self._logger.debug("MAPI namespace in use.")
-            else:
-                self.email_app = win32.Dispatch(self.email_app_name)
-                self.namespace = None
-            self.email = self.email_app.CreateItem(0)
-        except com_error as e:
-            self._logger.error(e, exc_info=True)
-            raise e
+        self.email_app, self.namespace, self.email = self.initialize_email_item_app_and_namespace()
 
         self._email_signature = None
         self._send_success = False
@@ -196,6 +187,24 @@ class PyEmailer(_SubjectSearcher):
     @send_success.setter
     def send_success(self, value):
         self._send_success = value
+
+    def initialize_email_item_app_and_namespace(self):
+        try:
+            email_app, namespace = self._setup_email_app_and_namespace()
+            email = self.email_app.CreateItem(0)
+        except com_error as e:
+            self._logger.error(e, exc_info=True)
+            raise e
+        return email_app, namespace, email
+
+    def _setup_email_app_and_namespace(self):
+        self.email_app = win32.Dispatch(self.email_app_name)
+
+        self._logger.debug(f"{self.email_app_name} app in use.")
+        self.namespace = self.email_app.GetNamespace(self.namespace_name)
+
+        self._logger.debug(f"{self.namespace_name} namespace in use.")
+        return self.email_app, self.namespace
 
     def _display_tracking_warning_confirm(self):
         # noinspection PyBroadException
@@ -440,7 +449,10 @@ if __name__ == "__main__":
     # emailer = PyEmailer(display_window=False, send_emails=True, auto_send=False)
     #
     # x = emailer.find_messages_by_subject("Timecard", partial_match_ok=False, include_re=False)
-    # print([m.Subject for m in x])
+    # #print([(m.SenderEmailAddress, m.SenderEmailType, [x.name for x in m.ItemProperties]) for m in x])
+    # property_accessor = x[0].PropertyAccessor
+    # print(x[0].Sender.GetExchangeUser().PrimarySmtpAddress)
+    # print(property_accessor.GetProperty("PR_EMAIL_ADDRESS"))
 
     # r_dict = {
     #     "subject": f"TEST: Your TEST "
