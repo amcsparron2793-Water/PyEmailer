@@ -10,7 +10,6 @@ import datetime
 from os import environ
 from os.path import isfile, abspath, isabs, join, isdir
 from tempfile import gettempdir
-from types import NoneType
 
 import extract_msg
 # install win32 with pip install pywin32
@@ -462,6 +461,7 @@ class PyEmailer(_SubjectSearcher):
         else:
             return msg
 
+    # TODO: tons of work to do to get this working
     @staticmethod
     def _failed_msg_is_dam_eap_and_recent(msg, recent_days_cap=1):
         abs_diff = abs(msg.ReceivedTime - datetime.datetime.now(tz=msg.ReceivedTime.tzinfo))
@@ -525,7 +525,7 @@ class PyEmailer(_SubjectSearcher):
             for m in msg:
                 email_of_err, err_reason, send_time = self._process_failed_msg(m)
                 if (any(isinstance(x, Exception) for x in (email_of_err, err_reason, send_time))
-                        or all(isinstance(x, NoneType) for x in (email_of_err, err_reason, send_time))):
+                        or all(isinstance(x, type(None)) for x in (email_of_err, err_reason, send_time))):
                     continue
                 else:
                     failed_sends.append({'postmaster_email': m.SenderEmailAddress,
@@ -541,7 +541,7 @@ class PyEmailer(_SubjectSearcher):
 if __name__ == "__main__":
     module_name = __file__.split('\\')[-1].split('.py')[0]
 
-    # emailer = PyEmailer(display_window=False, send_emails=True, auto_send=False)
+    emailer = PyEmailer(display_window=False, send_emails=True, auto_send=False)
     #
     # x = emailer.find_messages_by_subject("Timecard", partial_match_ok=False, include_re=False)
     # #print([(m.SenderEmailAddress, m.SenderEmailType, [x.name for x in m.ItemProperties]) for m in x])
