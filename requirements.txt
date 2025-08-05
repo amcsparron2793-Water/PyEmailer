@@ -2,3 +2,5 @@ setuptools~=75.3.2
 questionary~=2.0.1
 email-validator~=2.1.1
 prompt-toolkit~=3.0.36
+extract-msg~=0.54.1
+beautifulsoup4~=4.13.4

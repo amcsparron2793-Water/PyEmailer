@@ -6,12 +6,17 @@ install win32 with pip install pywin32
 """
 # imports
 from abc import abstractmethod
+import datetime
 from os import environ
 from os.path import isfile, abspath, isabs, join, isdir
 from tempfile import gettempdir
+from types import NoneType
 
+import extract_msg
 # install win32 with pip install pywin32
 import win32com.client as win32
+
+from bs4 import BeautifulSoup
 # This is installed as part of pywin32
 # noinspection PyUnresolvedReferences
 from pythoncom import com_error
@@ -441,6 +446,96 @@ class PyEmailer(_SubjectSearcher):
             except EmailerNotSetupError as e:
                 self._logger.error(e, exc_info=True)
                 raise e
+
+    def _ValidateResponseMsg(self, msg):
+        if isinstance(msg, win32.CDispatch):
+            self._logger.debug("passed in msg is CDispatch instance")
+        if hasattr(msg, 'HtmlBody'):
+            self._logger.debug("passed in msg has 'HtmlBody' attr")
+
+        if not isinstance(msg, win32.CDispatch) or not hasattr(msg, 'HtmlBody'):
+            try:
+                raise AttributeError("msg attr must have 'HtmlBody' attr AND be a CDispatch instance")
+            except AttributeError as e:
+                self._logger.error(e, exc_info=True)
+                raise e
+        else:
+            return msg
+
+    @staticmethod
+    def _failed_msg_is_dam_eap_and_recent(msg, recent_days_cap=1):
+        abs_diff = abs(msg.ReceivedTime - datetime.datetime.now(tz=msg.ReceivedTime.tzinfo))
+        return (abs_diff <= datetime.timedelta(days=recent_days_cap)
+                and ('EAP' in msg.Subject or 'Emergency Action Plan' in msg.Subject))
+
+    def _fetch_failed_msg_details(self, msg, **kwargs):
+        temp_attachment_save_path = kwargs.get('temp_attachment_save_path',
+                                               self.__class__.DEFAULT_TEMP_SAVE_PATH)
+        try:
+            attachment_msg_path = self.SaveAllEmailAttachments(msg, temp_attachment_save_path)
+            print('saved_attachments')
+        except Exception as e:
+            self._logger.warning("err: skipping this message")
+            return e
+        return attachment_msg_path
+
+    @staticmethod
+    def _process_failed_details_msg(attachment_msg, **kwargs):
+        detail_marker_string = kwargs.get('detail_marker_string', "Delivery has failed to these recipients or groups:")
+
+        failed_details_msg = extract_msg.Message(attachment_msg)
+
+        soup = BeautifulSoup(failed_details_msg.htmlBody, features="html.parser")
+
+        all_p = soup.find_all(name='p')  # , attrs={'class': 'MsoNormal'})
+
+        for para in all_p:
+            if detail_marker_string in para.get_text():
+                email_of_err = para.findNext('p').get_text().strip().split('(')[0].strip()
+                err_reason = para.findNext('p').findNext('p').get_text()
+                send_time = failed_details_msg.date
+                failed_subject = failed_details_msg.subject
+                # TODO: implement this so that adding other attrs is easier in the future
+                err_details = {'email_of_err': email_of_err, 'err_reason': err_reason,
+                               'send_time': send_time, 'failed_subject': failed_subject}
+                # print(f"Email of err: {email_of_err},\nErr reason: {err_reason}\nSend time: {send_time}")
+                return email_of_err, err_reason, send_time
+        return None, None, None
+
+    def _process_failed_msg(self, post_master_msg):
+        try:
+            self._ValidateResponseMsg(post_master_msg)
+        except AttributeError as e:
+            self._logger.warning("err: skipping this message")
+            return e, None, None
+        # FIXME: make this a generic filter or something when adding it to PyEmailerAJM
+        if self._failed_msg_is_dam_eap_and_recent(post_master_msg):
+            attachment_msg = self._fetch_failed_msg_details(post_master_msg)
+            if isinstance(attachment_msg, Exception):
+                return attachment_msg, None, None
+            else:
+                return self._process_failed_details_msg(attachment_msg)
+        return None, None, None
+
+    def get_failed_sends(self, fail_string_marker: str = 'undeliverable', partial_match_ok: bool = True):
+        failed_sends = []
+        self.GetMessages(BasicEmailFolderChoices.INBOX)
+        msg = self.FindMsgBySubject(fail_string_marker, partial_match_ok=partial_match_ok)
+        if msg:
+            for m in msg:
+                email_of_err, err_reason, send_time = self._process_failed_msg(m)
+                if (any(isinstance(x, Exception) for x in (email_of_err, err_reason, send_time))
+                        or all(isinstance(x, NoneType) for x in (email_of_err, err_reason, send_time))):
+                    continue
+                else:
+                    failed_sends.append({'postmaster_email': m.SenderEmailAddress,
+                                         'err_info': (email_of_err, err_reason, send_time)})
+        else:
+            self._logger.info("no failed sends found")
+            print("no failed sends found")
+
+        print(f"{len(failed_sends)} failed send(s) found.")
+        return failed_sends
 
 
 if __name__ == "__main__":
