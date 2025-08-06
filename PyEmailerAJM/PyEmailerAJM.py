@@ -6,16 +6,13 @@ install win32 with pip install pywin32
 """
 # imports
 from abc import abstractmethod
-import datetime
 from os import environ
 from os.path import isfile, abspath, isabs, join, isdir
 from tempfile import gettempdir
 
-import extract_msg
 # install win32 with pip install pywin32
 import win32com.client as win32
 
-from bs4 import BeautifulSoup
 # This is installed as part of pywin32
 # noinspection PyUnresolvedReferences
 from pythoncom import com_error
@@ -27,6 +24,7 @@ from prompt_toolkit.output.win32 import NoConsoleScreenBufferError
 
 from errs import *
 from helpers import BasicEmailFolderChoices, deprecated
+from msg import FailedMsg
 
 
 class _SubjectSearcher:
@@ -461,15 +459,14 @@ class PyEmailer(_SubjectSearcher):
         else:
             return msg
 
-
-
     def get_failed_sends(self, fail_string_marker: str = 'undeliverable', partial_match_ok: bool = True):
         failed_sends = []
         self.GetMessages(BasicEmailFolderChoices.INBOX)
-        msg = self.FindMsgBySubject(fail_string_marker, partial_match_ok=partial_match_ok)
-        if msg:
-            for m in msg:
-                email_of_err, err_reason, send_time = self._process_failed_msg(m)
+        msg_candidates = self.FindMsgBySubject(fail_string_marker, partial_match_ok=partial_match_ok)
+        if msg_candidates:
+            for m in msg_candidates:
+                fmsg = FailedMsg(m)
+                email_of_err, err_reason, send_time = fmsg.process_failed_msg(m)
                 if (any(isinstance(x, Exception) for x in (email_of_err, err_reason, send_time))
                         or all(isinstance(x, type(None)) for x in (email_of_err, err_reason, send_time))):
                     continue
@@ -488,6 +485,7 @@ if __name__ == "__main__":
     module_name = __file__.split('\\')[-1].split('.py')[0]
 
     emailer = PyEmailer(display_window=False, send_emails=True, auto_send=False)
+    emailer.get_failed_sends()
     #
     # x = emailer.find_messages_by_subject("Timecard", partial_match_ok=False, include_re=False)
     # #print([(m.SenderEmailAddress, m.SenderEmailType, [x.name for x in m.ItemProperties]) for m in x])

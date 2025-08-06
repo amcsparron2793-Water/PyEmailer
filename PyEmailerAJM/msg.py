@@ -5,30 +5,31 @@ import win32com.client as win32
 import datetime
 import extract_msg
 from bs4 import BeautifulSoup
+from logging import Logger, getLogger
 
 
 # TODO: tons of work to do to get this integrated into PyEmailer - specifically with the FailedSend stuff
 class Msg:
-    def __init__(self, email_item: win32.CDispatch):
+    def __init__(self, email_item: win32.CDispatch or extract_msg.Message, **kwargs):
         self.email_item = email_item
-        self._logger = None
+        self._logger: Logger = kwargs.get('logger', getLogger(__name__))
         self.send_success = False
 
     @property
     def sender(self):
-        return self.email_item.Sender
+        return self.email_item.Sender if hasattr(self.email_item, 'Sender') else self.email_item.sender
 
     @property
     def to(self):
-        return self.email_item.To
+        return self.email_item.To if hasattr(self.email_item, 'To') else self.email_item.to
 
     @property
     def subject(self):
-        return self.email_item.Subject
+        return self.email_item.Subject if hasattr(self.email_item, 'Subject') else self.email_item.subject
 
     @property
     def body(self):
-        return self.email_item.HTMLBody
+        return self.email_item.HTMLBody if hasattr(self.email_item, 'HTMLBody') else self.email_item.htmlBody
 
     @property
     def attachments(self):
@@ -72,14 +73,17 @@ class Msg:
             print("no attachments detected")
 
     def SaveAllEmailAttachments(self, save_dir_path):
+        all_attachment_paths = set()
         for attachment in self.attachments:
             full_save_path = join(save_dir_path, str(attachment))
             try:
                 attachment.SaveAsFile(full_save_path)
+                all_attachment_paths.add(full_save_path)
                 self._logger.debug(f"{full_save_path} saved from email with subject {self.subject}")
             except Exception as e:
                 self._logger.error(e, exc_info=True)
                 raise e
+        return all_attachment_paths
 
     def _display(self):
         # print(f"Displaying the email in {self.email_app_name}, this window might open minimized.")
@@ -101,22 +105,39 @@ class Msg:
             self._logger.error(e, exc_info=True)
             raise e
 
+    def _ValidateResponseMsg(self):
+        if isinstance(self.email_item, win32.CDispatch):
+            self._logger.debug("passed in msg is CDispatch instance")
+        if hasattr(self.email_item, 'HtmlBody'):
+            self._logger.debug("passed in msg has 'HtmlBody' attr")
+
+        if not isinstance(self.email_item, win32.CDispatch) or not hasattr(self.email_item, 'HtmlBody'):
+            try:
+                raise AttributeError("msg attr must have 'HtmlBody' attr AND be a CDispatch instance")
+            except AttributeError as e:
+                self._logger.error(e, exc_info=True)
+                raise e
+        else:
+            return self.email_item
+
 
 class FailedMsg(Msg):
-
     DEFAULT_TEMP_SAVE_PATH = gettempdir()
 
-    def __init__(self, email_item: win32.CDispatch):
-        super().__init__(email_item)
+    @property
+    def received_time(self):
+        return self.email_item.ReceivedTime
 
-# TODO: tons of work to do to get this working
-    @staticmethod
-    def _failed_msg_is_dam_eap_and_recent(msg, recent_days_cap=1):
-        abs_diff = abs(msg.ReceivedTime - datetime.datetime.now(tz=msg.ReceivedTime.tzinfo))
-        return (abs_diff <= datetime.timedelta(days=recent_days_cap)
-                and ('EAP' in msg.Subject or 'Emergency Action Plan' in msg.Subject))
+    def _message_filter_checks(self, **kwargs) -> bool:
+        recent_days_cap = kwargs.get('recent_days_cap', 1)
+        return self._failed_msg_is_recent(recent_days_cap)
 
-    def _fetch_failed_msg_details(self, msg, **kwargs):
+    # TODO: tons of work to do to get this working
+    def _failed_msg_is_recent(self, recent_days_cap=7):
+        abs_diff = abs(self.received_time - datetime.datetime.now(tz=self.received_time.tzinfo))
+        return abs_diff <= datetime.timedelta(days=recent_days_cap)
+
+    def _fetch_failed_msg_details(self, **kwargs):
         temp_attachment_save_path = kwargs.get('temp_attachment_save_path',
                                                self.__class__.DEFAULT_TEMP_SAVE_PATH)
         try:
@@ -125,15 +146,39 @@ class FailedMsg(Msg):
         except Exception as e:
             self._logger.warning("err: skipping this message")
             return e
+        if len(attachment_msg_path) == 1:
+            return next(iter(attachment_msg_path))
         return attachment_msg_path
 
-    @staticmethod
-    def _process_failed_details_msg(attachment_msg, **kwargs):
-        detail_marker_string = kwargs.get('detail_marker_string', "Delivery has failed to these recipients or groups:")
+    def process_failed_msg(self, post_master_msg):
+        try:
+            print(type(post_master_msg), hasattr(post_master_msg, 'HtmlBody'))
+            self.email_item = post_master_msg
+            self._ValidateResponseMsg()
+        except AttributeError as e:
+            self._logger.warning("err: skipping this message")
+            return e, None, None
+        if self._failed_msg_is_recent():
+            attachment_msg = self._fetch_failed_msg_details()
+            if isinstance(attachment_msg, Exception):
+                return attachment_msg, None, None
+            else:
+                if isinstance(attachment_msg, str):
+                    fmd = FailedMessageDetails.extract_msg_from_attachment(attachment_msg)
+                    return fmd.process_failed_details_msg() #self._process_failed_details_msg(attachment_msg)
+        return None, None, None
 
-        failed_details_msg = extract_msg.Message(attachment_msg)
 
-        soup = BeautifulSoup(failed_details_msg.htmlBody, features="html.parser")
+class FailedMessageDetails(FailedMsg):
+    @classmethod
+    def extract_msg_from_attachment(cls, attachment_msg: str, **kwargs):
+        return cls(extract_msg.Message(attachment_msg))
+
+    def process_failed_details_msg(self, **kwargs):
+        detail_marker_string = kwargs.get('detail_marker_string',
+                                          "Delivery has failed to these recipients or groups:")
+
+        soup = BeautifulSoup(self.body, features="html.parser")
 
         all_p = soup.find_all(name='p')  # , attrs={'class': 'MsoNormal'})
 
@@ -141,26 +186,11 @@ class FailedMsg(Msg):
             if detail_marker_string in para.get_text():
                 email_of_err = para.findNext('p').get_text().strip().split('(')[0].strip()
                 err_reason = para.findNext('p').findNext('p').get_text()
-                send_time = failed_details_msg.date
-                failed_subject = failed_details_msg.subject
+                send_time = self.email_item.date
+                failed_subject = self.subject
                 # TODO: implement this so that adding other attrs is easier in the future
                 err_details = {'email_of_err': email_of_err, 'err_reason': err_reason,
                                'send_time': send_time, 'failed_subject': failed_subject}
                 # print(f"Email of err: {email_of_err},\nErr reason: {err_reason}\nSend time: {send_time}")
                 return email_of_err, err_reason, send_time
-        return None, None, None
-
-    def _process_failed_msg(self, post_master_msg):
-        try:
-            self._ValidateResponseMsg(post_master_msg)
-        except AttributeError as e:
-            self._logger.warning("err: skipping this message")
-            return e, None, None
-        # FIXME: make this a generic filter or something when adding it to PyEmailerAJM
-        if self._failed_msg_is_dam_eap_and_recent(post_master_msg):
-            attachment_msg = self._fetch_failed_msg_details(post_master_msg)
-            if isinstance(attachment_msg, Exception):
-                return attachment_msg, None, None
-            else:
-                return self._process_failed_details_msg(attachment_msg)
         return None, None, None
