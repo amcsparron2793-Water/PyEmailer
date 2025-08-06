@@ -5,14 +5,17 @@ import win32com.client as win32
 import datetime
 import extract_msg
 from bs4 import BeautifulSoup
-from logging import Logger, getLogger
+from logging import Logger, getLogger, basicConfig
 
 
 # TODO: tons of work to do to get this integrated into PyEmailer - specifically with the FailedSend stuff
 class Msg:
     def __init__(self, email_item: win32.CDispatch or extract_msg.Message, **kwargs):
         self.email_item = email_item
+        if issubclass(self.email_item.__class__, Msg):#, FailedMsg, FailedMessageDetails)):
+            self.email_item = self.email_item.email_item
         self._logger: Logger = kwargs.get('logger', getLogger(__name__))
+        basicConfig(level='INFO')
         self.send_success = False
 
     @property
@@ -133,7 +136,8 @@ class FailedMsg(Msg):
         return self._failed_msg_is_recent(recent_days_cap)
 
     # TODO: tons of work to do to get this working
-    def _failed_msg_is_recent(self, recent_days_cap=7):
+    # TODO: make recent_days_cap more accessible to PyEmailer
+    def _failed_msg_is_recent(self, recent_days_cap=1):
         abs_diff = abs(self.received_time - datetime.datetime.now(tz=self.received_time.tzinfo))
         return abs_diff <= datetime.timedelta(days=recent_days_cap)
 
@@ -150,15 +154,15 @@ class FailedMsg(Msg):
             return next(iter(attachment_msg_path))
         return attachment_msg_path
 
-    def process_failed_msg(self, post_master_msg):
+    def process_failed_msg(self, post_master_msg, **kwargs):
+        recent_days_cap = kwargs.get('recent_days_cap', 1)
         try:
-            print(type(post_master_msg), hasattr(post_master_msg, 'HtmlBody'))
             self.email_item = post_master_msg
             self._ValidateResponseMsg()
         except AttributeError as e:
             self._logger.warning("err: skipping this message")
             return e, None, None
-        if self._failed_msg_is_recent():
+        if self._failed_msg_is_recent(recent_days_cap):
             attachment_msg = self._fetch_failed_msg_details()
             if isinstance(attachment_msg, Exception):
                 return attachment_msg, None, None

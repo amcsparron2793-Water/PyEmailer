@@ -24,7 +24,7 @@ from prompt_toolkit.output.win32 import NoConsoleScreenBufferError
 
 from errs import *
 from helpers import BasicEmailFolderChoices, deprecated
-from msg import FailedMsg
+from msg import Msg, FailedMsg
 
 
 class _SubjectSearcher:
@@ -46,7 +46,7 @@ class _SubjectSearcher:
         print("partial match ok: ", partial_match_ok)
 
         for message in self.GetMessages():
-            normalized_message_subject = self._normalize_subject(message.Subject)
+            normalized_message_subject = self._normalize_subject(message.subject)
 
             if (self._is_exact_match(normalized_message_subject, normalized_subject) or
                     (partial_match_ok and self._is_partial_match(normalized_message_subject,
@@ -266,7 +266,7 @@ class PyEmailer(_SubjectSearcher):
             except TypeError as e:
                 self._logger.error(e, exc_info=True)
                 raise e
-        return self.read_folder.Items
+        return [Msg(m) for m in self.read_folder.Items]
 
     def GetEmailMessageBody(self, msg):
         """message = messages.GetLast()"""
@@ -297,7 +297,7 @@ class PyEmailer(_SubjectSearcher):
             except Exception as e:
                 self._logger.error(e, exc_info=True)
                 raise e
-
+    # TODO: this needs to be worked on
     def SetupEmail(self, recipient: str, subject: str, text: str, attachments: list = None):
         def _validate_attachments():
             if attachments:
@@ -459,19 +459,22 @@ class PyEmailer(_SubjectSearcher):
         else:
             return msg
 
-    def get_failed_sends(self, fail_string_marker: str = 'undeliverable', partial_match_ok: bool = True):
+    def get_failed_sends(self, fail_string_marker: str = 'undeliverable', partial_match_ok: bool = True, **kwargs):
         failed_sends = []
+        recent_days_cap = kwargs.get('recent_days_cap', 1)
         self.GetMessages(BasicEmailFolderChoices.INBOX)
         msg_candidates = self.FindMsgBySubject(fail_string_marker, partial_match_ok=partial_match_ok)
         if msg_candidates:
             for m in msg_candidates:
+                # TODO: find a way to change a Msg into a FailedMsg more cleanly than this
                 fmsg = FailedMsg(m)
-                email_of_err, err_reason, send_time = fmsg.process_failed_msg(m)
+                email_of_err, err_reason, send_time = fmsg.process_failed_msg(fmsg.email_item,
+                                                                              recent_days_cap=recent_days_cap)
                 if (any(isinstance(x, Exception) for x in (email_of_err, err_reason, send_time))
                         or all(isinstance(x, type(None)) for x in (email_of_err, err_reason, send_time))):
                     continue
                 else:
-                    failed_sends.append({'postmaster_email': m.SenderEmailAddress,
+                    failed_sends.append({'postmaster_email': m.sender,
                                          'err_info': (email_of_err, err_reason, send_time)})
         else:
             self._logger.info("no failed sends found")
@@ -485,7 +488,8 @@ if __name__ == "__main__":
     module_name = __file__.split('\\')[-1].split('.py')[0]
 
     emailer = PyEmailer(display_window=False, send_emails=True, auto_send=False)
-    emailer.get_failed_sends()
+    # TODO: test sending etc etc
+    print(emailer.get_failed_sends(recent_days_cap=7)[0].get('err_info'))
     #
     # x = emailer.find_messages_by_subject("Timecard", partial_match_ok=False, include_re=False)
     # #print([(m.SenderEmailAddress, m.SenderEmailType, [x.name for x in m.ItemProperties]) for m in x])
