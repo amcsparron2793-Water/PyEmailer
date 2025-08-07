@@ -7,12 +7,11 @@ install win32 with pip install pywin32
 # imports
 from abc import abstractmethod
 from os import environ
-from os.path import isfile, abspath, isabs, join, isdir
+from os.path import isfile, join, isdir
 from tempfile import gettempdir
 
 # install win32 with pip install pywin32
 import win32com.client as win32
-from Tools.demo.mcast import sender
 
 # This is installed as part of pywin32
 # noinspection PyUnresolvedReferences
@@ -323,7 +322,6 @@ class PyEmailer(_SubjectSearcher):
                 self._logger.error(e, exc_info=True)
                 raise e
 
-    # TODO: this needs to be worked on - was already put into Msg as SetupMsg class attr?
     def SetupEmail(self, recipient: str, subject: str, text: str, attachments: list = None):
         # def _validate_attachments():
         #     if attachments:
@@ -378,35 +376,36 @@ class PyEmailer(_SubjectSearcher):
         #     self._logger.error(e, exc_info=True)
         #     raise e
         self.email = self.email.SetupMsg(sender=self.current_user_email, email_item=self.email(),
-                                         recipient=recipient, subject=subject, body=text, attachments=attachments, logger=self._logger)
+                                         recipient=recipient, subject=subject, body=text, attachments=attachments,
+                                         logger=self._logger)
         self._setup_was_run = True
         return self.email
 
-    def _display(self):
-        # print(f"Displaying the email in {self.email_app_name}, this window might open minimized.")
-        self._logger.info(f"Displaying the email in {self.email_app_name}, this window might open minimized.")
-        try:
-            self.email().Display(True)
-        except Exception as e:
-            self._logger.error(e, exc_info=True)
-            raise e
-
-    def _send(self):
-        try:
-            self.send_success = False
-            self.email().Send()
-            # print(f"Mail sent to {self._recipient}")
-            self.send_success = True
-            self._logger.info(f"Mail successfully sent to {self._recipient}")
-        except Exception as e:
-            self._logger.error(e, exc_info=True)
-            raise e
+    # def _display(self):
+    #     # print(f"Displaying the email in {self.email_app_name}, this window might open minimized.")
+    #     self._logger.info(f"Displaying the email in {self.email_app_name}, this window might open minimized.")
+    #     try:
+    #         self.email().Display(True)
+    #     except Exception as e:
+    #         self._logger.error(e, exc_info=True)
+    #         raise e
+    # 
+    # def _send(self):
+    #     try:
+    #         self.send_success = False
+    #         self.email().Send()
+    #         # print(f"Mail sent to {self._recipient}")
+    #         self.send_success = True
+    #         self._logger.info(f"Mail successfully sent to {self._recipient}")
+    #     except Exception as e:
+    #         self._logger.error(e, exc_info=True)
+    #         raise e
 
     def _manual_send_loop(self):
         try:
             send = questionary.confirm("Send Mail?:", default=False).ask()
             if send:
-                self._send()
+                self.email.send()
                 return
             elif not send:
                 self._logger.info(f"Mail not sent to {self._recipient}")
@@ -428,7 +427,7 @@ class PyEmailer(_SubjectSearcher):
             while True:
                 yn = input("Send Mail? (y/n/q): ").lower()
                 if yn == 'y':
-                    self._send()
+                    self.email.send()
                     break
                 elif yn == 'n':
                     self._logger.info(f"Mail not sent to {self._recipient}")
@@ -444,7 +443,7 @@ class PyEmailer(_SubjectSearcher):
     def SendOrDisplay(self):
         if self._setup_was_run:
             # print(f"Ready to send/display mail to/for {self._recipient}...")
-            self._logger.info(f"Ready to send/display mail to/for {self._recipient}...")
+            self._logger.info(f"Ready to send/display mail to/for {self.email.to}...")
             if self.send_emails and self.display_window:
                 send_and_display_warning = ("Sending email while also displaying the email "
                                             "in the app is not possible. Defaulting to Display only")
@@ -456,12 +455,13 @@ class PyEmailer(_SubjectSearcher):
             if self.send_emails:
                 if self.auto_send:
                     self._logger.info("Sending emails with auto_send...")
-                    self._send()
+                    self.email.send()
+
                 else:
                     self._manual_send_loop()
 
             elif self.display_window:
-                self._display()
+                self.email.display()
             else:
                 both_disabled_warning = ("Both sending and displaying the email are disabled. "
                                          "No errors were encountered.")
@@ -473,21 +473,6 @@ class PyEmailer(_SubjectSearcher):
             except EmailerNotSetupError as e:
                 self._logger.error(e, exc_info=True)
                 raise e
-
-    def _ValidateResponseMsg(self, msg):
-        if isinstance(msg, win32.CDispatch):
-            self._logger.debug("passed in msg is CDispatch instance")
-        if hasattr(msg, 'HtmlBody'):
-            self._logger.debug("passed in msg has 'HtmlBody' attr")
-
-        if not isinstance(msg, win32.CDispatch) or not hasattr(msg, 'HtmlBody'):
-            try:
-                raise AttributeError("msg attr must have 'HtmlBody' attr AND be a CDispatch instance")
-            except AttributeError as e:
-                self._logger.error(e, exc_info=True)
-                raise e
-        else:
-            return msg
 
     @staticmethod
     def _fmsg_is_no_info_or_err(info):

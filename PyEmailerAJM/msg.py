@@ -1,3 +1,4 @@
+from abc import abstractmethod
 from os.path import isfile, isabs, abspath, join
 from tempfile import gettempdir
 
@@ -8,19 +9,14 @@ from bs4 import BeautifulSoup
 from logging import Logger, getLogger, warning
 
 
-class Msg:
-    def __init__(self, email_item: win32.CDispatch or extract_msg.Message, **kwargs):
+class _BasicMsgProperties:
+    def __init__(self, email_item: win32.CDispatch):
         self.email_item = email_item
-        print([x for x in self.email_item.__dir__() if not x.startswith('_')])
 
-        # TODO: might not be needed anymore?
-        #if issubclass(self.email_item.__class__, Msg):#, FailedMsg, FailedMessageDetails)):
-            #self.email_item = self.email_item.email_item
-        self._logger: Logger = kwargs.get('logger', getLogger(__name__))
-        self.send_success = False
-
-    def __call__(self, *args, **kwargs):
-        return self.email_item
+    @classmethod
+    @abstractmethod
+    def _validate_and_add_attachments(cls, email_item: win32.CDispatch, attachment_list: list = None):
+        ...
 
     @property
     def sender(self):
@@ -49,6 +45,20 @@ class Msg:
     @attachments.setter
     def attachments(self, value: list):
         self._validate_and_add_attachments(self.email_item, value)
+
+
+class Msg(_BasicMsgProperties):
+    def __init__(self, email_item: win32.CDispatch or extract_msg.Message, **kwargs):
+        super().__init__(email_item)
+
+        # TODO: might not be needed anymore?
+        #if issubclass(self.email_item.__class__, Msg):#, FailedMsg, FailedMessageDetails)):
+            #self.email_item = self.email_item.email_item
+        self._logger: Logger = kwargs.get('logger', getLogger(__name__))
+        self.send_success = False
+
+    def __call__(self, *args, **kwargs):
+        return self.email_item
 
     @classmethod
     def SetupMsg(cls, sender, recipient, subject, body, email_item: win32.CDispatch, attachments: list = None, **kwargs):
@@ -93,16 +103,16 @@ class Msg:
                 raise e
         return all_attachment_paths
 
-    def _display(self):
+    def display(self):
         # print(f"Displaying the email in {self.email_app_name}, this window might open minimized.")
         # self._logger.info(f"Displaying the email in {self.email_app_name}, this window might open minimized.")
         try:
-            self.email_item.Display(True)
+            self().Display(True)
         except Exception as e:
             self._logger.error(e, exc_info=True)
             raise e
 
-    def _send(self):
+    def send(self):
         try:
             self.send_success = False
             self().Send()
@@ -114,22 +124,22 @@ class Msg:
             raise e
 
     def _ValidateResponseMsg(self):
-        if isinstance(self.email_item, win32.CDispatch):
+        if isinstance(self(), win32.CDispatch):
             self._logger.debug("passed in msg is CDispatch instance")
-        if hasattr(self.email_item, 'HtmlBody') or hasattr(self.email_item, 'htmlBody'):
+        if hasattr(self(), 'HtmlBody') or hasattr(self(), 'htmlBody'):
             self._logger.debug("passed in msg has 'HtmlBody' or 'htmlBody' attr")
 
-        if (not isinstance(self.email_item, win32.CDispatch)
-                or not hasattr(self.email_item, ('HtmlBody' or 'htmlBody'))):
+        if (not isinstance(self(), win32.CDispatch)
+                or not hasattr(self(), ('HtmlBody' or 'htmlBody'))):
             raise AttributeError("msg attr must have 'HtmlBody' attr AND be a CDispatch instance")
-        return self.email_item
+        return self()
 
     def _msg_is_recent(self, recent_days_cap=1):
         abs_diff = abs(self.received_time - datetime.datetime.now(tz=self.received_time.tzinfo))
         return abs_diff <= datetime.timedelta(days=recent_days_cap)
 
     def return_as_failed_send(self):
-        return FailedMsg(self.email_item)
+        return FailedMsg(self())
 
 
 class FailedMsg(Msg):
@@ -180,7 +190,7 @@ class FailedMessageDetails(FailedMsg):
     def _extract_from_failed_details_msg(self, para):
         email_of_err = para.findNext('p').get_text().strip().split('(')[0].strip()
         err_reason = para.findNext('p').findNext('p').get_text()
-        send_time = self.email_item.date.ctime()
+        send_time = self().date.ctime()
         failed_subject = self.subject
 
         err_details = {'email_of_err': email_of_err, 'err_reason': err_reason,
