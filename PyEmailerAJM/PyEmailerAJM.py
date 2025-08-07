@@ -213,10 +213,16 @@ class PyEmailer(_SubjectSearcher):
         basicConfig(level='INFO', handlers=self._logger.handlers)
         self._logger.info("basic logger initialized.")
 
+    def initialize_new_email(self):
+        if hasattr(self, 'email_app') and self.email_app is not None:
+            self.email = Msg(self.email_app.CreateItem(0), logger=self._logger)
+            return self.email
+        raise AttributeError("email_app is not defined. Run 'initialize_email_item_app_and_namespace' first")
+
     def initialize_email_item_app_and_namespace(self):
         try:
             email_app, namespace = self._setup_email_app_and_namespace()
-            email = Msg(self.email_app.CreateItem(0), logger=self._logger)
+            email = self.initialize_new_email()
         except com_error as e:
             self._logger.error(e, exc_info=True)
             raise e

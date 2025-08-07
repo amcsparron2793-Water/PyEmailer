@@ -118,6 +118,8 @@ class Msg(_BasicMsgProperties):
             self().Send()
             # print(f"Mail sent to {self._recipient}")
             self.send_success = True
+            # FIXME: this throws
+            #  pywintypes.com_error: (-2147352567, 'Exception occurred.', (4096, 'Microsoft Outlook', 'The item has been moved or deleted.', None, 0, -2147221238), None)
             self._logger.info(f"Mail successfully sent to {self.to}")
         except Exception as e:
             self._logger.error(e, exc_info=True)
