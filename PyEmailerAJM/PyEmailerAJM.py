@@ -12,11 +12,13 @@ from tempfile import gettempdir
 
 # install win32 with pip install pywin32
 import win32com.client as win32
+from Tools.demo.mcast import sender
 
 # This is installed as part of pywin32
 # noinspection PyUnresolvedReferences
 from pythoncom import com_error
-from logging import Logger
+from logging import Logger, basicConfig
+from logging import StreamHandler, FileHandler
 from email_validator import validate_email, EmailNotValidError
 import questionary
 # this is usually thrown when questionary is used in the dev/Non Win32 environment
@@ -63,7 +65,7 @@ class _SubjectSearcher:
                                                    partial_match_ok):
                 matched_messages.append(message)
 
-        return matched_messages
+        return [m() for m in matched_messages]
 
     @staticmethod
     def _normalize_subject(subject: str) -> str:
@@ -111,7 +113,11 @@ class PyEmailer(_SubjectSearcher):
         if logger:
             self._logger = logger
         else:
-            self._logger = Logger("DUMMY")
+            self._logger = Logger(__name__)
+        if self._logger.hasHandlers():
+            pass
+        else:
+            self._initialize_default_logger()
             # print("Dummy logger in use!")
 
         self.email_app_name = email_app_name
@@ -190,10 +196,28 @@ class PyEmailer(_SubjectSearcher):
     def send_success(self, value):
         self._send_success = value
 
+    def _initialize_default_logger(self):
+        stream_handle = StreamHandler()
+        stream_handle.set_name('StreamHandler')
+        file_handle = FileHandler('./emailer.log')
+        file_handle.set_name('FileHandler')
+
+        self._logger.addHandler(stream_handle)
+        self._logger.addHandler(file_handle)
+        for h in self._logger.handlers:
+            if isinstance(h, FileHandler):
+                h.setLevel('DEBUG')
+            elif isinstance(h, StreamHandler):
+                h.setLevel('INFO')
+            else:
+                h.setLevel('INFO')
+        basicConfig(level='INFO', handlers=self._logger.handlers)
+        self._logger.info("basic logger initialized.")
+
     def initialize_email_item_app_and_namespace(self):
         try:
             email_app, namespace = self._setup_email_app_and_namespace()
-            email = self.email_app.CreateItem(0)
+            email = Msg(self.email_app.CreateItem(0), logger=self._logger)
         except com_error as e:
             self._logger.error(e, exc_info=True)
             raise e
@@ -266,8 +290,9 @@ class PyEmailer(_SubjectSearcher):
             except TypeError as e:
                 self._logger.error(e, exc_info=True)
                 raise e
-        return [Msg(m) for m in self.read_folder.Items]
+        return [Msg(m, logger=self._logger) for m in self.read_folder.Items]
 
+    @deprecated("use Msg classes body attribute instead")
     def GetEmailMessageBody(self, msg):
         """message = messages.GetLast()"""
         body_content = msg.body
@@ -297,66 +322,71 @@ class PyEmailer(_SubjectSearcher):
             except Exception as e:
                 self._logger.error(e, exc_info=True)
                 raise e
-    # TODO: this needs to be worked on
+
+    # TODO: this needs to be worked on - was already put into Msg as SetupMsg class attr?
     def SetupEmail(self, recipient: str, subject: str, text: str, attachments: list = None):
-        def _validate_attachments():
-            if attachments:
-                if isinstance(attachments, list):
-                    for a in attachments:
-                        if isfile(a):
-                            if isabs(a):
-                                self.email.Attachments.Add(a)
-                            else:
-                                a = abspath(a)
-                                if isfile(a):
-                                    self.email.Attachments.Add(a)
-                                else:
-                                    try:
-                                        raise FileNotFoundError(f"file {a} could not be attached.")
-                                    except FileNotFoundError as e:
-                                        self._logger.error(e, exc_info=True)
-                                        raise e
-                        else:
-                            try:
-                                raise FileNotFoundError(f"file {a} could not be attached.")
-                            except FileNotFoundError as e:
-                                self._logger.error(e, exc_info=True)
-                                raise e
-                else:
-                    try:
-                        raise TypeError("attachments attribute must be a list")
-                    except TypeError as e:
-                        self._logger.error(e, exc_info=True)
-                        raise e
-            else:
-                self._logger.debug("no attachments detected")
+        # def _validate_attachments():
+        #     if attachments:
+        #         if isinstance(attachments, list):
+        #             for a in attachments:
+        #                 if isfile(a):
+        #                     if isabs(a):
+        #                         self.email.Attachments.Add(a)
+        #                     else:
+        #                         a = abspath(a)
+        #                         if isfile(a):
+        #                             self.email.Attachments.Add(a)
+        #                         else:
+        #                             try:
+        #                                 raise FileNotFoundError(f"file {a} could not be attached.")
+        #                             except FileNotFoundError as e:
+        #                                 self._logger.error(e, exc_info=True)
+        #                                 raise e
+        #                 else:
+        #                     try:
+        #                         raise FileNotFoundError(f"file {a} could not be attached.")
+        #                     except FileNotFoundError as e:
+        #                         self._logger.error(e, exc_info=True)
+        #                         raise e
+        #         else:
+        #             try:
+        #                 raise TypeError("attachments attribute must be a list")
+        #             except TypeError as e:
+        #                 self._logger.error(e, exc_info=True)
+        #                 raise e
+        #     else:
+        #         self._logger.debug("no attachments detected")
+        #
+        # try:
+        #     # set the params
+        #     _validate_attachments()
+        #     self.email.To = recipient
+        #     self.email.Subject = subject
+        #     self.email.HtmlBody = text
+        #
+        #     self._recipient = self.email.To
+        #     self._subject = self.email.Subject
+        #     self._text = self.email.HtmlBody
+        #
+        #     # print("New email set up successfully.")
+        #     self._logger.info("New email set up successfully. see debug for details")
+        #     self._logger.debug(f"Email recipient {recipient}, Subject {subject}, Message body {text}")
+        #     self._setup_was_run = True
+        #     return self.email
 
-        try:
-            # set the params
-            _validate_attachments()
-            self.email.To = recipient
-            self.email.Subject = subject
-            self.email.HtmlBody = text
-
-            self._recipient = self.email.To
-            self._subject = self.email.Subject
-            self._text = self.email.HtmlBody
-
-            # print("New email set up successfully.")
-            self._logger.info("New email set up successfully. see debug for details")
-            self._logger.debug(f"Email recipient {recipient}, Subject {subject}, Message body {text}")
-            self._setup_was_run = True
-            return self.email
-
-        except Exception as e:
-            self._logger.error(e, exc_info=True)
-            raise e
+        # except Exception as e:
+        #     self._logger.error(e, exc_info=True)
+        #     raise e
+        self.email = self.email.SetupMsg(sender=self.current_user_email, email_item=self.email(),
+                                         recipient=recipient, subject=subject, body=text, attachments=attachments, logger=self._logger)
+        self._setup_was_run = True
+        return self.email
 
     def _display(self):
         # print(f"Displaying the email in {self.email_app_name}, this window might open minimized.")
         self._logger.info(f"Displaying the email in {self.email_app_name}, this window might open minimized.")
         try:
-            self.email.Display(True)
+            self.email().Display(True)
         except Exception as e:
             self._logger.error(e, exc_info=True)
             raise e
@@ -364,7 +394,7 @@ class PyEmailer(_SubjectSearcher):
     def _send(self):
         try:
             self.send_success = False
-            self.email.Send()
+            self.email().Send()
             # print(f"Mail sent to {self._recipient}")
             self.send_success = True
             self._logger.info(f"Mail successfully sent to {self._recipient}")
@@ -459,23 +489,31 @@ class PyEmailer(_SubjectSearcher):
         else:
             return msg
 
+    @staticmethod
+    def _fmsg_is_no_info_or_err(info):
+        return (any(isinstance(x, Exception) for x in info)
+                or all(isinstance(x, type(None)) for x in info))
+
     def get_failed_sends(self, fail_string_marker: str = 'undeliverable', partial_match_ok: bool = True, **kwargs):
         failed_sends = []
         recent_days_cap = kwargs.get('recent_days_cap', 1)
         self.GetMessages(BasicEmailFolderChoices.INBOX)
+
         msg_candidates = self.FindMsgBySubject(fail_string_marker, partial_match_ok=partial_match_ok)
+
         if msg_candidates:
+            msg_candidates = [FailedMsg(m) for m in msg_candidates]
+            self._logger.info(f"{len(msg_candidates)} 'failed send' candidates found.")
+            self._logger.info("mutated msg_candidates (Msg instances) into FailedMsg instances.")
+
             for m in msg_candidates:
-                # TODO: find a way to change a Msg into a FailedMsg more cleanly than this
-                fmsg = FailedMsg(m)
-                email_of_err, err_reason, send_time = fmsg.process_failed_msg(fmsg.email_item,
-                                                                              recent_days_cap=recent_days_cap)
-                if (any(isinstance(x, Exception) for x in (email_of_err, err_reason, send_time))
-                        or all(isinstance(x, type(None)) for x in (email_of_err, err_reason, send_time))):
+                failed_info = m.process_failed_msg(m(), recent_days_cap=recent_days_cap)
+
+                if self._fmsg_is_no_info_or_err(failed_info):
                     continue
                 else:
                     failed_sends.append({'postmaster_email': m.sender,
-                                         'err_info': (email_of_err, err_reason, send_time)})
+                                         'err_info': failed_info})
         else:
             self._logger.info("no failed sends found")
             print("no failed sends found")
@@ -487,9 +525,14 @@ class PyEmailer(_SubjectSearcher):
 if __name__ == "__main__":
     module_name = __file__.split('\\')[-1].split('.py')[0]
 
-    emailer = PyEmailer(display_window=False, send_emails=True, auto_send=False)
+    emailer = PyEmailer(display_window=True, send_emails=True, auto_send=False)
     # TODO: test sending etc etc
-    print(emailer.get_failed_sends(recent_days_cap=7)[0].get('err_info'))
+    emailer.SetupEmail(subject="TEST: Your TEST agreement expires in 30 days or less!",
+                       recipient='amcsparron@albanyny.gov',
+                       text="testing to see anything works")
+    emailer.SendOrDisplay()
+    #attachments=[r"C:\Users\amcsparron\Desktop\Python_Projects\PyEmailer\PyEmailerAJM\PyEmailerAJM.py"])
+    # print(emailer.get_failed_sends(recent_days_cap=7)[0].get('err_info'))
     #
     # x = emailer.find_messages_by_subject("Timecard", partial_match_ok=False, include_re=False)
     # #print([(m.SenderEmailAddress, m.SenderEmailType, [x.name for x in m.ItemProperties]) for m in x])
