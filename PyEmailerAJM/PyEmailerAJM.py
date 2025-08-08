@@ -16,8 +16,7 @@ import win32com.client as win32
 # This is installed as part of pywin32
 # noinspection PyUnresolvedReferences
 from pythoncom import com_error
-from logging import Logger, basicConfig
-from logging import StreamHandler, FileHandler
+from logging import Logger, basicConfig, StreamHandler, FileHandler
 from email_validator import validate_email, EmailNotValidError
 import questionary
 # this is usually thrown when questionary is used in the dev/Non Win32 environment

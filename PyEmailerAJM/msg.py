@@ -114,13 +114,13 @@ class Msg(_BasicMsgProperties):
 
     def send(self):
         try:
+            # if the send fails, self.to is NULL, so this needs to be saved in a local variable
+            attempted_recipient = self.to
             self.send_success = False
             self().Send()
             # print(f"Mail sent to {self._recipient}")
             self.send_success = True
-            # FIXME: this throws
-            #  pywintypes.com_error: (-2147352567, 'Exception occurred.', (4096, 'Microsoft Outlook', 'The item has been moved or deleted.', None, 0, -2147221238), None)
-            self._logger.info(f"Mail successfully sent to {self.to}")
+            self._logger.info(f"Mail successfully sent to {attempted_recipient}")
         except Exception as e:
             self._logger.error(e, exc_info=True)
             raise e
@@ -179,12 +179,12 @@ class FailedMsg(Msg):
                 return attachment_msg, None, None
             else:
                 if isinstance(attachment_msg, str):
-                    fmd = FailedMessageDetails.extract_msg_from_attachment(attachment_msg)
+                    fmd = _FailedMessageDetails.extract_msg_from_attachment(attachment_msg)
                     return fmd.process_failed_details_msg() #self._process_failed_details_msg(attachment_msg)
         return None, None, None
 
 
-class FailedMessageDetails(FailedMsg):
+class _FailedMessageDetails(FailedMsg):
     @classmethod
     def extract_msg_from_attachment(cls, parent_msg: str):
         return cls(extract_msg.Message(parent_msg))
