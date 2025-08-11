@@ -40,7 +40,7 @@ class EmailerInitializer:
                  email_app_name: str = DEFAULT_EMAIL_APP_NAME,
                  namespace_name: str = DEFAULT_NAMESPACE_NAME):
 
-        self._logger = self._initialize_logger(logger)
+        self._logger = self._initialize_logger(logger, use_default_logger=False)
         # print("Dummy logger in use!")
 
         self.email_app_name = email_app_name
@@ -52,13 +52,17 @@ class EmailerInitializer:
         self.auto_send = auto_send
         self.send_emails = send_emails
 
-    def _initialize_logger(self, logger=None):
+    def _initialize_logger(self, logger=None, **kwargs):
         if logger:
             self._logger = logger
             return self._logger
         else:
             self._logger = Logger(__name__)
+
         if self._logger.hasHandlers():
+            return self._logger
+        if not kwargs.get('use_default_logger', True):
+            print("not using default logger")
             return self._logger
         return self._initialize_default_logger()
 
@@ -358,58 +362,6 @@ class PyEmailer(EmailerInitializer, _SubjectSearcher):
                 raise e
 
     def SetupEmail(self, recipient: str, subject: str, text: str, attachments: list = None, **kwargs):
-        # def _validate_attachments():
-        #     if attachments:
-        #         if isinstance(attachments, list):
-        #             for a in attachments:
-        #                 if isfile(a):
-        #                     if isabs(a):
-        #                         self.email.Attachments.Add(a)
-        #                     else:
-        #                         a = abspath(a)
-        #                         if isfile(a):
-        #                             self.email.Attachments.Add(a)
-        #                         else:
-        #                             try:
-        #                                 raise FileNotFoundError(f"file {a} could not be attached.")
-        #                             except FileNotFoundError as e:
-        #                                 self._logger.error(e, exc_info=True)
-        #                                 raise e
-        #                 else:
-        #                     try:
-        #                         raise FileNotFoundError(f"file {a} could not be attached.")
-        #                     except FileNotFoundError as e:
-        #                         self._logger.error(e, exc_info=True)
-        #                         raise e
-        #         else:
-        #             try:
-        #                 raise TypeError("attachments attribute must be a list")
-        #             except TypeError as e:
-        #                 self._logger.error(e, exc_info=True)
-        #                 raise e
-        #     else:
-        #         self._logger.debug("no attachments detected")
-        #
-        # try:
-        #     # set the params
-        #     _validate_attachments()
-        #     self.email.To = recipient
-        #     self.email.Subject = subject
-        #     self.email.HtmlBody = text
-        #
-        #     self._recipient = self.email.To
-        #     self._subject = self.email.Subject
-        #     self._text = self.email.HtmlBody
-        #
-        #     # print("New email set up successfully.")
-        #     self._logger.info("New email set up successfully. see debug for details")
-        #     self._logger.debug(f"Email recipient {recipient}, Subject {subject}, Message body {text}")
-        #     self._setup_was_run = True
-        #     return self.email
-
-        # except Exception as e:
-        #     self._logger.error(e, exc_info=True)
-        #     raise e
         self.email = self.email.SetupMsg(sender=self.current_user_email, email_item=self.email(),
                                          recipient=recipient, subject=subject, body=text, attachments=attachments,
                                          logger=self._logger, **kwargs)
@@ -515,28 +467,38 @@ class PyEmailer(EmailerInitializer, _SubjectSearcher):
                 else:
                     failed_sends.append({'postmaster_email': m.sender,
                                          'err_info': failed_info})
-
-        self._logger.info(self.__class__.FAILED_SEND_LOGGER_STRING.format(num=len(failed_sends),
-                                                                          recent_days_cap=recent_days_cap))
+        results_string = self.__class__.FAILED_SEND_LOGGER_STRING.format(num=len(failed_sends),
+                                                                         recent_days_cap=recent_days_cap)
+        if (not self._logger.hasHandlers() or not any([isinstance(x, StreamHandler)
+                                                       for x in self._logger.handlers])):
+            print(results_string)
+        self._logger.info(results_string)
         return failed_sends
+
+
+def __failed_sends_test(emailer):
+    failed_sends = emailer.get_failed_sends(recent_days_cap=1)
+    fs_results = ([(x.get('err_info').get('send_time'),
+                    x.get('err_info').get('failed_subject'))
+                   for x in failed_sends]
+                  if failed_sends else "no failed sends found")
+    print(fs_results)
+
+
+def __setup_and_send_test(emailer):
+    emailer.SetupEmail(subject="TEST: Your TEST agreement expires in 30 days or less!",
+                       recipient='amcsparron@albanyny.gov',
+                       text="testing to see anything works", bcc='amcsparron@albanyny.gov')
+    emailer.SendOrDisplay()
 
 
 if __name__ == "__main__":
     module_name = __file__.split('\\')[-1].split('.py')[0]
 
-    emailer = PyEmailer(display_window=False, send_emails=True, auto_send=False)
-    # TODO: test sending etc etc
-    # emailer.SetupEmail(subject="TEST: Your TEST agreement expires in 30 days or less!",
-    #                    recipient='amcsparron@albanyny.gov',
-    #                    text="testing to see anything works", bcc='amcsparron@albanyny.gov')
-    # emailer.SendOrDisplay()
-    # attachments=[r"C:\Users\amcsparron\Desktop\Python_Projects\PyEmailer\PyEmailerAJM\PyEmailerAJM.py"])
-    # failed_sends = emailer.get_failed_sends(recent_days_cap=1)
-    # fs_results = ([(x.get('err_info').get('send_time'),
-    #                 x.get('err_info').get('failed_subject'))
-    #                for x in failed_sends]
-    #               if failed_sends else "no failed sends found")
-    # print(fs_results)
+    em = PyEmailer(display_window=False, send_emails=True, auto_send=False)
+    __setup_and_send_test(em)
+    __failed_sends_test(em)
+
     #
     # x = emailer.find_messages_by_subject("Timecard", partial_match_ok=False, include_re=False)
     # #print([(m.SenderEmailAddress, m.SenderEmailType, [x.name for x in m.ItemProperties]) for m in x])
