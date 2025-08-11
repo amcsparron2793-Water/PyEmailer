@@ -95,6 +95,9 @@ class _SubjectSearcher:
 
 
 class PyEmailer(_SubjectSearcher):
+    DEFAULT_EMAIL_APP_NAME = 'outlook.application'
+    DEFAULT_NAMESPACE_NAME = 'MAPI'
+
     # the email tab_char
     tab_char = '&emsp;'
     signature_dir_path = join((environ['USERPROFILE']),
@@ -109,18 +112,11 @@ class PyEmailer(_SubjectSearcher):
                  send_emails: bool, logger: Logger = None,
                  email_sig_filename: str = None,
                  auto_send: bool = False,
-                 email_app_name: str = 'outlook.application',
-                 namespace_name: str = 'MAPI'):
+                 email_app_name: str = DEFAULT_EMAIL_APP_NAME,
+                 namespace_name: str = DEFAULT_NAMESPACE_NAME):
 
-        if logger:
-            self._logger = logger
-        else:
-            self._logger = Logger(__name__)
-        if self._logger.hasHandlers():
-            pass
-        else:
-            self._initialize_default_logger()
-            # print("Dummy logger in use!")
+        self._logger = self._initialize_logger(logger)
+        # print("Dummy logger in use!")
 
         self.email_app_name = email_app_name
         self.namespace_name = namespace_name
@@ -131,9 +127,6 @@ class PyEmailer(_SubjectSearcher):
         self._setup_was_run = False
         self._current_user_email = None
 
-        self._recipient = None
-        self._subject = None
-        self._text = None
         self.read_folder = None
 
         self.email_app, self.namespace, self.email = self.initialize_email_item_app_and_namespace()
@@ -198,6 +191,16 @@ class PyEmailer(_SubjectSearcher):
     def send_success(self, value):
         self._send_success = value
 
+    def _initialize_logger(self, logger=None):
+        if logger:
+            self._logger = logger
+            return self._logger
+        else:
+            self._logger = Logger(__name__)
+        if self._logger.hasHandlers():
+            return self._logger
+        return self._initialize_default_logger()
+
     def _initialize_default_logger(self):
         stream_handle = StreamHandler()
         stream_handle.set_name('StreamHandler')
@@ -215,6 +218,7 @@ class PyEmailer(_SubjectSearcher):
                 h.setLevel('INFO')
         basicConfig(level='INFO', handlers=self._logger.handlers)
         self._logger.info("basic logger initialized.")
+        return self._logger
 
     def initialize_new_email(self):
         if hasattr(self, 'email_app') and self.email_app is not None:
@@ -390,26 +394,6 @@ class PyEmailer(_SubjectSearcher):
         self._setup_was_run = True
         return self.email
 
-    # def _display(self):
-    #     # print(f"Displaying the email in {self.email_app_name}, this window might open minimized.")
-    #     self._logger.info(f"Displaying the email in {self.email_app_name}, this window might open minimized.")
-    #     try:
-    #         self.email().Display(True)
-    #     except Exception as e:
-    #         self._logger.error(e, exc_info=True)
-    #         raise e
-    # 
-    # def _send(self):
-    #     try:
-    #         self.send_success = False
-    #         self.email().Send()
-    #         # print(f"Mail sent to {self._recipient}")
-    #         self.send_success = True
-    #         self._logger.info(f"Mail successfully sent to {self._recipient}")
-    #     except Exception as e:
-    #         self._logger.error(e, exc_info=True)
-    #         raise e
-
     def _manual_send_loop(self):
         try:
             send = questionary.confirm("Send Mail?:", default=False).ask()
@@ -417,8 +401,8 @@ class PyEmailer(_SubjectSearcher):
                 self.email.send()
                 return
             elif not send:
-                self._logger.info(f"Mail not sent to {self._recipient}")
-                print(f"Mail not sent to {self._recipient}")
+                self._logger.info(f"Mail not sent to {self.email.to}")
+                print(f"Mail not sent to {self.email.to}")
                 q = questionary.confirm("do you want to quit early?", default=False).ask()
                 if q:
                     print("ok quitting!")
@@ -439,8 +423,8 @@ class PyEmailer(_SubjectSearcher):
                     self.email.send()
                     break
                 elif yn == 'n':
-                    self._logger.info(f"Mail not sent to {self._recipient}")
-                    print(f"Mail not sent to {self._recipient}")
+                    self._logger.info(f"Mail not sent to {self.email.to}")
+                    print(f"Mail not sent to {self.email.to}")
                     break
                 elif yn == 'q':
                     print("ok quitting!")
@@ -449,9 +433,10 @@ class PyEmailer(_SubjectSearcher):
                 else:
                     print("Please choose \'y\', \'n\' or \'q\'")
 
-    def SendOrDisplay(self):
+    def SendOrDisplay(self, print_ready_msg: bool = False):
         if self._setup_was_run:
-            # print(f"Ready to send/display mail to/for {self._recipient}...")
+            if print_ready_msg:
+                print(f"Ready to send/display mail to/for {self.email.to}...")
             self._logger.info(f"Ready to send/display mail to/for {self.email.to}...")
             if self.send_emails and self.display_window:
                 send_and_display_warning = ("Sending email while also displaying the email "
@@ -519,14 +504,14 @@ class PyEmailer(_SubjectSearcher):
 if __name__ == "__main__":
     module_name = __file__.split('\\')[-1].split('.py')[0]
 
-    emailer = PyEmailer(display_window=True, send_emails=True, auto_send=False)
+    emailer = PyEmailer(display_window=False, send_emails=True, auto_send=False)
     # TODO: test sending etc etc
-    # emailer.SetupEmail(subject="TEST: Your TEST agreement expires in 30 days or less!",
-    #                    recipient='amcsparron@albanyny.gov',
-    #                    text="testing to see anything works")
-    #emailer.SendOrDisplay()
+    emailer.SetupEmail(subject="TEST: Your TEST agreement expires in 30 days or less!",
+                       recipient='amcsparron@albanyny.gov',
+                       text="testing to see anything works")
+    emailer.SendOrDisplay()
     #attachments=[r"C:\Users\amcsparron\Desktop\Python_Projects\PyEmailer\PyEmailerAJM\PyEmailerAJM.py"])
-    print(emailer.get_failed_sends(recent_days_cap=9)[0].get('err_info'))
+    #print(emailer.get_failed_sends(recent_days_cap=9)[0].get('err_info'))
     #
     # x = emailer.find_messages_by_subject("Timecard", partial_match_ok=False, include_re=False)
     # #print([(m.SenderEmailAddress, m.SenderEmailType, [x.name for x in m.ItemProperties]) for m in x])
