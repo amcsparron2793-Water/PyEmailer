@@ -28,6 +28,10 @@ from msg import Msg, FailedMsg
 
 
 class _SubjectSearcher:
+    # Constants for prefixes
+    FW_PREFIXES = ['FW:', 'FWD:']
+    RE_PREFIX = 'RE:'
+
     @abstractmethod
     def GetMessages(self):
         ...
@@ -35,10 +39,6 @@ class _SubjectSearcher:
     def find_messages_by_subject(self, search_subject: str, include_fw: bool = True, include_re: bool = True,
                                  partial_match_ok: bool = False) -> list:
         """Returns a list of messages matching the given subject, ignoring prefixes based on flags."""
-
-        # Constants for prefixes
-        FW_PREFIXES = ['FW:', 'FWD:']
-        RE_PREFIX = 'RE:'
 
         # Normalize search subject
         normalized_subject = self._normalize_subject(search_subject)
@@ -54,12 +54,16 @@ class _SubjectSearcher:
                 matched_messages.append(message)
                 continue
 
-            if include_fw and self._matches_prefix(normalized_message_subject, FW_PREFIXES, normalized_subject,
+            if include_fw and self._matches_prefix(normalized_message_subject,
+                                                   self.__class__.FW_PREFIXES,
+                                                   normalized_subject,
                                                    partial_match_ok):
                 matched_messages.append(message)
                 continue
 
-            if include_re and self._matches_prefix(normalized_message_subject, [RE_PREFIX], normalized_subject,
+            if include_re and self._matches_prefix(normalized_message_subject,
+                                                   [self.__class__.RE_PREFIX],
+                                                   normalized_subject,
                                                    partial_match_ok):
                 matched_messages.append(message)
 
@@ -517,12 +521,12 @@ if __name__ == "__main__":
 
     emailer = PyEmailer(display_window=True, send_emails=True, auto_send=False)
     # TODO: test sending etc etc
-    emailer.SetupEmail(subject="TEST: Your TEST agreement expires in 30 days or less!",
-                       recipient='amcsparron@albanyny.gov',
-                       text="testing to see anything works")
-    emailer.SendOrDisplay()
+    # emailer.SetupEmail(subject="TEST: Your TEST agreement expires in 30 days or less!",
+    #                    recipient='amcsparron@albanyny.gov',
+    #                    text="testing to see anything works")
+    #emailer.SendOrDisplay()
     #attachments=[r"C:\Users\amcsparron\Desktop\Python_Projects\PyEmailer\PyEmailerAJM\PyEmailerAJM.py"])
-    # print(emailer.get_failed_sends(recent_days_cap=7)[0].get('err_info'))
+    print(emailer.get_failed_sends(recent_days_cap=9)[0].get('err_info'))
     #
     # x = emailer.find_messages_by_subject("Timecard", partial_match_ok=False, include_re=False)
     # #print([(m.SenderEmailAddress, m.SenderEmailType, [x.name for x in m.ItemProperties]) for m in x])
