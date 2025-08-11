@@ -9,6 +9,7 @@ from abc import abstractmethod
 from os import environ
 from os.path import isfile, join, isdir
 from tempfile import gettempdir
+from typing import List
 
 # install win32 with pip install pywin32
 import win32com.client as win32
@@ -20,11 +21,100 @@ from logging import Logger, basicConfig, StreamHandler, FileHandler
 from email_validator import validate_email, EmailNotValidError
 import questionary
 # this is usually thrown when questionary is used in the dev/Non Win32 environment
+# noinspection PyProtectedMember
 from prompt_toolkit.output.win32 import NoConsoleScreenBufferError
+from win32com.client import CDispatch
 
 from errs import *
 from helpers import BasicEmailFolderChoices, deprecated
 from msg import Msg, FailedMsg
+
+
+class EmailerInitializer:
+    DEFAULT_EMAIL_APP_NAME = 'outlook.application'
+    DEFAULT_NAMESPACE_NAME = 'MAPI'
+
+    def __init__(self, display_window: bool,
+                 send_emails: bool, logger: Logger = None,
+                 auto_send: bool = False,
+                 email_app_name: str = DEFAULT_EMAIL_APP_NAME,
+                 namespace_name: str = DEFAULT_NAMESPACE_NAME):
+
+        self._logger = self._initialize_logger(logger)
+        # print("Dummy logger in use!")
+
+        self.email_app_name = email_app_name
+        self.namespace_name = namespace_name
+
+        self.email_app, self.namespace, self.email = self.initialize_email_item_app_and_namespace()
+
+        self.display_window = display_window
+        self.auto_send = auto_send
+        self.send_emails = send_emails
+
+    def _initialize_logger(self, logger=None):
+        if logger:
+            self._logger = logger
+            return self._logger
+        else:
+            self._logger = Logger(__name__)
+        if self._logger.hasHandlers():
+            return self._logger
+        return self._initialize_default_logger()
+
+    def _initialize_default_logger(self, **kwargs):
+        def init_handlers():
+            sh = StreamHandler()
+            sh.set_name('StreamHandler')
+            fh = FileHandler(kwargs.get('log_file_path', join('./', 'PyEmailer.log')))
+            fh.set_name('FileHandler')
+            return sh, fh
+
+        def set_handler_levels(**kw):
+            fh_level = kw.get('FileHandler_level', 'DEBUG')
+            sh_level = kw.get('StreamHandler_level', 'INFO')
+            for h in self._logger.handlers:
+                if isinstance(h, FileHandler):
+                    h.setLevel(fh_level)
+                elif isinstance(h, StreamHandler):
+                    h.setLevel(sh_level)
+                else:
+                    h.setLevel(kw.get('handler_default_level', 'DEBUG'))
+
+        stream_handle, file_handle = init_handlers()
+
+        if kwargs.get('log_to_stdout', True):
+            self._logger.addHandler(stream_handle)
+        self._logger.addHandler(file_handle)
+        set_handler_levels(**kwargs)
+
+        basicConfig(level='INFO', handlers=self._logger.handlers)
+        self._logger.info("basic logger initialized.")
+        return self._logger
+
+    def initialize_new_email(self):
+        if hasattr(self, 'email_app') and self.email_app is not None:
+            self.email = Msg(self.email_app.CreateItem(0), logger=self._logger)
+            return self.email
+        raise AttributeError("email_app is not defined. Run 'initialize_email_item_app_and_namespace' first")
+
+    def initialize_email_item_app_and_namespace(self):
+        try:
+            email_app, namespace = self._setup_email_app_and_namespace()
+            email = self.initialize_new_email()
+        except com_error as e:
+            self._logger.error(e, exc_info=True)
+            raise e
+        return email_app, namespace, email
+
+    def _setup_email_app_and_namespace(self):
+        self.email_app = win32.Dispatch(self.email_app_name)
+
+        self._logger.debug(f"{self.email_app_name} app in use.")
+        self.namespace = self.email_app.GetNamespace(self.namespace_name)
+
+        self._logger.debug(f"{self.namespace_name} namespace in use.")
+        return self.email_app, self.namespace
 
 
 class _SubjectSearcher:
@@ -37,7 +127,7 @@ class _SubjectSearcher:
         ...
 
     def find_messages_by_subject(self, search_subject: str, include_fw: bool = True, include_re: bool = True,
-                                 partial_match_ok: bool = False) -> list:
+                                 partial_match_ok: bool = False) -> List[CDispatch]:
         """Returns a list of messages matching the given subject, ignoring prefixes based on flags."""
 
         # Normalize search subject
@@ -94,42 +184,27 @@ class _SubjectSearcher:
         return search_subject in message_subject
 
 
-class PyEmailer(_SubjectSearcher):
-    DEFAULT_EMAIL_APP_NAME = 'outlook.application'
-    DEFAULT_NAMESPACE_NAME = 'MAPI'
-
+class PyEmailer(EmailerInitializer, _SubjectSearcher):
     # the email tab_char
     tab_char = '&emsp;'
     signature_dir_path = join((environ['USERPROFILE']),
                               'AppData\\Roaming\\Microsoft\\Signatures\\')
 
     DisplayEmailSendTrackingWarning = "THIS TYPE OF SEND CANNOT BE DETECTED FOR SEND SUCCESS AUTOMATICALLY."
+    FAILED_SEND_LOGGER_STRING = "{num} confirmed failed send(s) found in the last {recent_days_cap} day(s)."
 
     DEFAULT_TEMP_SAVE_PATH = gettempdir()
     VALID_EMAIL_FOLDER_CHOICES = [x for x in BasicEmailFolderChoices]
 
-    def __init__(self, display_window: bool,
-                 send_emails: bool, logger: Logger = None,
-                 email_sig_filename: str = None,
-                 auto_send: bool = False,
-                 email_app_name: str = DEFAULT_EMAIL_APP_NAME,
-                 namespace_name: str = DEFAULT_NAMESPACE_NAME):
+    def __init__(self, display_window: bool, send_emails: bool, logger: Logger = None, email_sig_filename: str = None,
+                 auto_send: bool = False, email_app_name: str = EmailerInitializer.DEFAULT_EMAIL_APP_NAME,
+                 namespace_name: str = EmailerInitializer.DEFAULT_NAMESPACE_NAME):
 
-        self._logger = self._initialize_logger(logger)
-        # print("Dummy logger in use!")
-
-        self.email_app_name = email_app_name
-        self.namespace_name = namespace_name
-
-        self.display_window = display_window
-        self.auto_send = auto_send
-        self.send_emails = send_emails
+        super().__init__(display_window, send_emails, logger, auto_send, email_app_name, namespace_name)
         self._setup_was_run = False
         self._current_user_email = None
 
         self.read_folder = None
-
-        self.email_app, self.namespace, self.email = self.initialize_email_item_app_and_namespace()
 
         self._email_signature = None
         self._send_success = False
@@ -190,59 +265,6 @@ class PyEmailer(_SubjectSearcher):
     @send_success.setter
     def send_success(self, value):
         self._send_success = value
-
-    def _initialize_logger(self, logger=None):
-        if logger:
-            self._logger = logger
-            return self._logger
-        else:
-            self._logger = Logger(__name__)
-        if self._logger.hasHandlers():
-            return self._logger
-        return self._initialize_default_logger()
-
-    def _initialize_default_logger(self):
-        stream_handle = StreamHandler()
-        stream_handle.set_name('StreamHandler')
-        file_handle = FileHandler('./emailer.log')
-        file_handle.set_name('FileHandler')
-
-        self._logger.addHandler(stream_handle)
-        self._logger.addHandler(file_handle)
-        for h in self._logger.handlers:
-            if isinstance(h, FileHandler):
-                h.setLevel('DEBUG')
-            elif isinstance(h, StreamHandler):
-                h.setLevel('INFO')
-            else:
-                h.setLevel('INFO')
-        basicConfig(level='INFO', handlers=self._logger.handlers)
-        self._logger.info("basic logger initialized.")
-        return self._logger
-
-    def initialize_new_email(self):
-        if hasattr(self, 'email_app') and self.email_app is not None:
-            self.email = Msg(self.email_app.CreateItem(0), logger=self._logger)
-            return self.email
-        raise AttributeError("email_app is not defined. Run 'initialize_email_item_app_and_namespace' first")
-
-    def initialize_email_item_app_and_namespace(self):
-        try:
-            email_app, namespace = self._setup_email_app_and_namespace()
-            email = self.initialize_new_email()
-        except com_error as e:
-            self._logger.error(e, exc_info=True)
-            raise e
-        return email_app, namespace, email
-
-    def _setup_email_app_and_namespace(self):
-        self.email_app = win32.Dispatch(self.email_app_name)
-
-        self._logger.debug(f"{self.email_app_name} app in use.")
-        self.namespace = self.email_app.GetNamespace(self.namespace_name)
-
-        self._logger.debug(f"{self.namespace_name} namespace in use.")
-        return self.email_app, self.namespace
 
     def _display_tracking_warning_confirm(self):
         # noinspection PyBroadException
@@ -335,7 +357,7 @@ class PyEmailer(_SubjectSearcher):
                 self._logger.error(e, exc_info=True)
                 raise e
 
-    def SetupEmail(self, recipient: str, subject: str, text: str, attachments: list = None):
+    def SetupEmail(self, recipient: str, subject: str, text: str, attachments: list = None, **kwargs):
         # def _validate_attachments():
         #     if attachments:
         #         if isinstance(attachments, list):
@@ -390,7 +412,7 @@ class PyEmailer(_SubjectSearcher):
         #     raise e
         self.email = self.email.SetupMsg(sender=self.current_user_email, email_item=self.email(),
                                          recipient=recipient, subject=subject, body=text, attachments=attachments,
-                                         logger=self._logger)
+                                         logger=self._logger, **kwargs)
         self._setup_was_run = True
         return self.email
 
@@ -483,7 +505,7 @@ class PyEmailer(_SubjectSearcher):
         if msg_candidates:
             msg_candidates = [FailedMsg(m) for m in msg_candidates]
             self._logger.info(f"{len(msg_candidates)} 'failed send' candidates found.")
-            self._logger.info("mutated msg_candidates (Msg instances) into FailedMsg instances.")
+            self._logger.info("mutating msg_candidates (Msg instances) into FailedMsg instances.")
 
             for m in msg_candidates:
                 failed_info = m.process_failed_msg(m(), recent_days_cap=recent_days_cap)
@@ -493,11 +515,9 @@ class PyEmailer(_SubjectSearcher):
                 else:
                     failed_sends.append({'postmaster_email': m.sender,
                                          'err_info': failed_info})
-        else:
-            self._logger.info("no failed sends found")
-            print("no failed sends found")
 
-        print(f"{len(failed_sends)} failed send(s) found.")
+        self._logger.info(self.__class__.FAILED_SEND_LOGGER_STRING.format(num=len(failed_sends),
+                                                                          recent_days_cap=recent_days_cap))
         return failed_sends
 
 
@@ -506,12 +526,17 @@ if __name__ == "__main__":
 
     emailer = PyEmailer(display_window=False, send_emails=True, auto_send=False)
     # TODO: test sending etc etc
-    emailer.SetupEmail(subject="TEST: Your TEST agreement expires in 30 days or less!",
-                       recipient='amcsparron@albanyny.gov',
-                       text="testing to see anything works")
-    emailer.SendOrDisplay()
-    #attachments=[r"C:\Users\amcsparron\Desktop\Python_Projects\PyEmailer\PyEmailerAJM\PyEmailerAJM.py"])
-    #print(emailer.get_failed_sends(recent_days_cap=9)[0].get('err_info'))
+    # emailer.SetupEmail(subject="TEST: Your TEST agreement expires in 30 days or less!",
+    #                    recipient='amcsparron@albanyny.gov',
+    #                    text="testing to see anything works", bcc='amcsparron@albanyny.gov')
+    # emailer.SendOrDisplay()
+    # attachments=[r"C:\Users\amcsparron\Desktop\Python_Projects\PyEmailer\PyEmailerAJM\PyEmailerAJM.py"])
+    # failed_sends = emailer.get_failed_sends(recent_days_cap=1)
+    # fs_results = ([(x.get('err_info').get('send_time'),
+    #                 x.get('err_info').get('failed_subject'))
+    #                for x in failed_sends]
+    #               if failed_sends else "no failed sends found")
+    # print(fs_results)
     #
     # x = emailer.find_messages_by_subject("Timecard", partial_match_ok=False, include_re=False)
     # #print([(m.SenderEmailAddress, m.SenderEmailType, [x.name for x in m.ItemProperties]) for m in x])

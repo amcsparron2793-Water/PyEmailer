@@ -20,11 +20,22 @@ class _BasicMsgProperties:
 
     @property
     def sender(self):
+        if hasattr(self.email_item, 'SenderEmailType') and self.email_item.SenderEmailType == 'EX':
+            return self.email_item.Sender.GetExchangeUser().PrimarySmtpAddress
+        # return self.email_item.Sender if hasattr(self.email_item, 'Sender') else self.email_item.sender
+        else:
+            return self.email_item.SenderEmailAddress
+
+    @property
+    def sender_name(self):
         return self.email_item.Sender if hasattr(self.email_item, 'Sender') else self.email_item.sender
 
     @property
     def to(self):
         return self.email_item.To if hasattr(self.email_item, 'To') else self.email_item.to
+
+    def cc(self):
+        return self.email_item.CC if hasattr(self.email_item, 'CC') else self.email_item.cc
 
     @property
     def subject(self):
@@ -32,7 +43,8 @@ class _BasicMsgProperties:
 
     @property
     def received_time(self):
-        return self.email_item.ReceivedTime
+        #not_future = self.email_item.ReceivedTime.year < datetime.datetime.now().year
+        return self.email_item.ReceivedTime #if not_future else None
 
     @property
     def body(self):
@@ -50,10 +62,6 @@ class _BasicMsgProperties:
 class Msg(_BasicMsgProperties):
     def __init__(self, email_item: win32.CDispatch or extract_msg.Message, **kwargs):
         super().__init__(email_item)
-
-        # TODO: might not be needed anymore?
-        #if issubclass(self.email_item.__class__, Msg):#, FailedMsg, FailedMessageDetails)):
-            #self.email_item = self.email_item.email_item
         self._logger: Logger = kwargs.get('logger', getLogger(__name__))
         self.send_success = False
 
@@ -66,6 +74,9 @@ class Msg(_BasicMsgProperties):
         email_item.Sender = sender
         email_item.Subject = subject
         email_item.HtmlBody = body
+        email_item.cc = kwargs.get('cc', '')
+        email_item.Bcc = kwargs.get('bcc', '')
+
         cls._validate_and_add_attachments(email_item, attachments)
         return cls(email_item, **kwargs)
 
@@ -137,14 +148,19 @@ class Msg(_BasicMsgProperties):
         return self()
 
     def _msg_is_recent(self, recent_days_cap=1):
-        abs_diff = abs(self.received_time - datetime.datetime.now(tz=self.received_time.tzinfo))
-        return abs_diff <= datetime.timedelta(days=recent_days_cap)
+        if self.received_time is not None:
+            abs_diff = abs(self.received_time - datetime.datetime.now(tz=self.received_time.tzinfo))
+            return abs_diff <= datetime.timedelta(days=recent_days_cap)
+        print(f"msg with subject \'{self.email_item.Subject}\' has no received time. defaulting to false")
+        self._logger.debug(f"msg with subject \'{self.email_item.Subject}\' has no received time. defaulting to false")
+        return False
 
     def return_as_failed_send(self):
         return FailedMsg(self())
 
 
 class FailedMsg(Msg):
+    ERR_SKIP_STRING = "err {}: skipping this message"
     DEFAULT_TEMP_SAVE_PATH = gettempdir()
 
     def _message_filter_checks(self, **kwargs) -> bool:
@@ -158,7 +174,7 @@ class FailedMsg(Msg):
             attachment_msg_path = self.SaveAllEmailAttachments(temp_attachment_save_path)
             print('saved_attachments')
         except Exception as e:
-            self._logger.warning("err: skipping this message")
+            self._logger.warning(self.__class__.ERR_SKIP_STRING.format(f'({e})'))
             return e
         if len(attachment_msg_path) == 1:
             return next(iter(attachment_msg_path))
@@ -170,7 +186,7 @@ class FailedMsg(Msg):
             self.email_item = post_master_msg
             self._ValidateResponseMsg()
         except AttributeError as e:
-            self._logger.warning("err: skipping this message")
+            self._logger.warning(self.__class__.ERR_SKIP_STRING.format(f'({e})'))
             return e, None, None
 
         if self._msg_is_recent(recent_days_cap):
