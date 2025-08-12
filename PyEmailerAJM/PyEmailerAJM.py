@@ -496,10 +496,8 @@ if __name__ == "__main__":
     module_name = __file__.split('\\')[-1].split('.py')[0]
 
     em = PyEmailer(display_window=False, send_emails=True, auto_send=False)
-    __setup_and_send_test(em)
-    __failed_sends_test(em)
-
-    #
+    # __setup_and_send_test(em)
+    # __failed_sends_test(em)
     # x = emailer.find_messages_by_subject("Timecard", partial_match_ok=False, include_re=False)
     # #print([(m.SenderEmailAddress, m.SenderEmailType, [x.name for x in m.ItemProperties]) for m in x])
     # property_accessor = x[0].PropertyAccessor
