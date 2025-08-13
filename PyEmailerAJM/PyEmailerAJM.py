@@ -121,7 +121,23 @@ class EmailerInitializer:
         return self.email_app, self.namespace
 
 
-class _SubjectSearcher:
+class _GeneralSearcher:
+    @staticmethod
+    def _normalize_string(raw_string: str) -> str:
+        """Normalize the given str by converting to lowercase and stripping whitespace."""
+        return raw_string.lower().strip()
+
+    @staticmethod
+    def _is_exact_match(candidate_str: str, search_str: str) -> bool:
+        """Checks if the subject matches exactly."""
+        return candidate_str == search_str
+
+    @staticmethod
+    def _is_partial_match(candidate_str: str, search_str: str) -> bool:
+        return search_str in candidate_str
+
+
+class _SubjectSearcher(_GeneralSearcher):
     # Constants for prefixes
     FW_PREFIXES = ['FW:', 'FWD:']
     RE_PREFIX = 'RE:'
@@ -135,12 +151,12 @@ class _SubjectSearcher:
         """Returns a list of messages matching the given subject, ignoring prefixes based on flags."""
 
         # Normalize search subject
-        normalized_subject = self._normalize_subject(search_subject)
+        normalized_subject = self._normalize_string(search_subject)
         matched_messages = []
         print("partial match ok: ", partial_match_ok)
 
         for message in self.GetMessages():
-            normalized_message_subject = self._normalize_subject(message.subject)
+            normalized_message_subject = self._normalize_string(message.subject)
 
             if (self._is_exact_match(normalized_message_subject, normalized_subject) or
                     (partial_match_ok and self._is_partial_match(normalized_message_subject,
@@ -163,11 +179,6 @@ class _SubjectSearcher:
 
         return [m() for m in matched_messages]
 
-    @staticmethod
-    def _normalize_subject(subject: str) -> str:
-        """Normalize the given subject by converting to lowercase and stripping whitespace."""
-        return subject.lower().strip()
-
     def _matches_prefix(self, message_subject: str, prefixes: list, search_subject: str,
                         partial_match_ok: bool = False) -> bool:
         """Checks if the message subject matches the search subject after removing a prefix."""
@@ -177,15 +188,6 @@ class _SubjectSearcher:
                 return (self._is_exact_match(stripped_subject, search_subject) if not partial_match_ok
                         else self._is_partial_match(stripped_subject, search_subject))
         return False
-
-    @staticmethod
-    def _is_exact_match(message_subject: str, search_subject: str) -> bool:
-        """Checks if the subject matches exactly."""
-        return message_subject == search_subject
-
-    @staticmethod
-    def _is_partial_match(message_subject: str, search_subject: str) -> bool:
-        return search_subject in message_subject
 
 
 class PyEmailer(EmailerInitializer, _SubjectSearcher):
@@ -498,8 +500,10 @@ if __name__ == "__main__":
     em = PyEmailer(display_window=False, send_emails=True, auto_send=False)
     # __setup_and_send_test(em)
     # __failed_sends_test(em)
-    # x = emailer.find_messages_by_subject("Timecard", partial_match_ok=False, include_re=False)
-    # #print([(m.SenderEmailAddress, m.SenderEmailType, [x.name for x in m.ItemProperties]) for m in x])
+    x = em.find_messages_by_subject("Timecard", partial_match_ok=False, include_re=False)
+    # [x.name for x in m.ItemProperties]
+    print([(m.__class__, m.sender, m.sender_email_type, m.subject)
+           for m in x])#[Msg(y) for y in x]])  # for m in x])
     # property_accessor = x[0].PropertyAccessor
     # print(x[0].Sender.GetExchangeUser().PrimarySmtpAddress)
     # print(property_accessor.GetProperty("PR_EMAIL_ADDRESS"))
