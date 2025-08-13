@@ -24,7 +24,6 @@ class _BasicMsgProperties:
             return self.email_item.Sender.GetExchangeUser().PrimarySmtpAddress
         # return self.email_item.Sender if hasattr(self.email_item, 'Sender') else self.email_item.sender
         else:
-            print(self.email_item.sender)
             return (self.email_item.SenderEmailAddress
                     if hasattr(self.email_item, 'SenderEmailAddress')
                     else self.email_item.Sender)
