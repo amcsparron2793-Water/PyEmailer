@@ -170,8 +170,9 @@ class _SubjectSearcher(_GeneralSearcher):
 
     def search_for_match(self, search_str: str, message:CDispatch, attribute: str, partial_match_ok: bool = False,
                          include_fw: bool = True, include_re: bool = True,):
-        normalized_message_attr = self._normalize_string(_GeneralSearcher.get_attribute_for_search(message, attribute))
-        normalized_search_str = self._normalize_string(search_str)
+        # normalized_message_attr = self._normalize_string(_GeneralSearcher.get_attribute_for_search(message, attribute))
+        # normalized_search_str = self._normalize_string(search_str)
+        normalized_message_attr, normalized_search_str = self.get_normalized_attr_and_candidate(message, attribute, search_str)
         if super().search_for_match(normalized_search_str, message, normalized_message_attr, partial_match_ok):
             return message
 
@@ -193,8 +194,9 @@ class _SubjectSearcher(_GeneralSearcher):
         # Normalize search subject
         normalized_subject = self._normalize_string(search_subject)
         matched_messages = []
-        print("partial match ok: ", partial_match_ok)
 
+        print(f"searching for messages with subject \'{search_subject}\' partial match ok: ", partial_match_ok)
+        # TODO: generalize this into a fetch_matched_messages() method for _GeneralSearcher
         for message in self.GetMessages():
             msg = self.search_for_match(normalized_subject, message, 'subject',
                                         partial_match_ok, include_fw, include_re)
