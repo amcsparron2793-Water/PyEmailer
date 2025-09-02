@@ -1,6 +1,6 @@
 #! python3
 """
-PyEmailerAJM.py
+py_emailer_ajm.py
 
 install win32 with pip install pywin32
 """
@@ -25,9 +25,9 @@ import questionary
 from prompt_toolkit.output.win32 import NoConsoleScreenBufferError
 from win32com.client import CDispatch
 
-from errs import *
-from helpers import BasicEmailFolderChoices, deprecated
-from msg import Msg, FailedMsg
+from PyEmailerAJM import EmailerNotSetupError, DisplayManualQuit
+from PyEmailerAJM import BasicEmailFolderChoices, deprecated
+from PyEmailerAJM import Msg, FailedMsg
 
 
 class EmailerInitializer:
@@ -38,9 +38,9 @@ class EmailerInitializer:
                  send_emails: bool, logger: Logger = None,
                  auto_send: bool = False,
                  email_app_name: str = DEFAULT_EMAIL_APP_NAME,
-                 namespace_name: str = DEFAULT_NAMESPACE_NAME):
+                 namespace_name: str = DEFAULT_NAMESPACE_NAME, **kwargs):
 
-        self._logger = self._initialize_logger(logger, use_default_logger=False)
+        self._logger = self._initialize_logger(logger, use_default_logger=kwargs.get('use_default_logger', False))
         # print("Dummy logger in use!")
 
         self.email_app_name = email_app_name
@@ -230,9 +230,9 @@ class PyEmailer(EmailerInitializer, _SubjectSearcher):
 
     def __init__(self, display_window: bool, send_emails: bool, logger: Logger = None, email_sig_filename: str = None,
                  auto_send: bool = False, email_app_name: str = EmailerInitializer.DEFAULT_EMAIL_APP_NAME,
-                 namespace_name: str = EmailerInitializer.DEFAULT_NAMESPACE_NAME):
+                 namespace_name: str = EmailerInitializer.DEFAULT_NAMESPACE_NAME, **kwargs):
 
-        super().__init__(display_window, send_emails, logger, auto_send, email_app_name, namespace_name)
+        super().__init__(display_window, send_emails, logger, auto_send, email_app_name, namespace_name, **kwargs)
         self._setup_was_run = False
         self._current_user_email = None
 
@@ -523,7 +523,9 @@ def __setup_and_send_test(emailer):
 if __name__ == "__main__":
     module_name = __file__.split('\\')[-1].split('.py')[0]
 
-    em = PyEmailer(display_window=False, send_emails=True, auto_send=False)
+    em = PyEmailer(display_window=False, send_emails=True, auto_send=False, use_default_logger=True)
+    m = em.find_messages_by_subject('Andrew', partial_match_ok=True, include_re=True, include_fw=True)
+    print([type(x) for x in m])
     # __setup_and_send_test(em)
     # __failed_sends_test(em)
     x = em.find_messages_by_subject("GIS Request", partial_match_ok=True, include_re=False)

@@ -1,15 +1,26 @@
 from setuptools import setup
+import re
+
+project_name = 'PyEmailerAJM'
+
+
+def get_property(prop, project):
+    result = re.search(r'{}\s*=\s*[\'"]([^\'"]*)[\'"]'.format(prop),
+                       open(project + '/_version.py').read())
+    return result.group(1)
+
 
 setup(
-    name='PyEmailerAJM',
-    version='1.5.3',
+    name=project_name,
+    version=get_property('__version__', project_name),
     packages=['PyEmailerAJM'],
     url='https://github.com/amcsparron2793-Water/PyEmailer',
-    download_url='https://github.com/amcsparron2793-Water/PyEmailer/archive/refs/tags/1.5.3.tar.gz',
+    download_url=f'https://github.com/amcsparron2793-Water/PyEmailer/archive/refs/tags/{get_property("__version__", project_name)}.tar.gz',
     keywords=["Outlook", "Email", "Automation"],
     install_requires=['pywin32'],
     license='MIT License',
     author='Amcsparron',
     author_email='amcsparron@albanyny.gov',
-    description='Allows for automating sending Email with the Outlook Desktop client. Future releases will add more client support'
+    description='Allows for automating sending Email with the Outlook Desktop client.'
+                ' Future releases will add more client support'
 )
