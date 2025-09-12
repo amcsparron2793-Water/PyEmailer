@@ -41,3 +41,12 @@ if "%pypi_type%"=="prod" (
 
 REM You can tell pip to download packages from TestPyPI instead of PyPI by specifying the --index-url flag:
 REM py -m pip install --index-url https://test.pypi.org/simple/ your-package
+
+
+echo cleaning up dist and egg-info
+REM move the dir instead of copying - suppresses the big beginning block and ending block
+echo robocopying dist to old_dist
+robocopy dist old_dist /NDL /NFL /NJH /NJS /MOVE
+REM delete the dir recursively without prompting
+echo removing PyEmailerAJM.egg-info directory
+rmdir /S /Q PyEmailerAJM.egg-info
