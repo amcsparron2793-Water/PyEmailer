@@ -1,0 +1,39 @@
+name: Create Release on Tag
+
+on:
+  push:
+    tags:
+      - '*'  # Trigger on any tag push
+
+jobs:
+  create_release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      # Checkout the repository
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Create a release
+      - name: Create GitHub Release
+        id: create_release
+        uses: actions/create-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}  # Use the tag name from the push event
+          release_name: Release ${{ github.ref_name }}  # Release name
+          body: |
+            This is an automated release triggered by pushing the tag `${{ github.ref_name }}` to the master branch.
+          draft: false
+          prerelease: false
+
+      # (Optional) Upload assets to the release
+      #- name: Upload Release Asset
+        #uses: actions/upload-release-asset@v1
+        #with:
+          #upload_url: ${{ steps.create_release.outputs.upload_url }}
+          #asset_path: <path-to-your-asset>  # Replace with the path to your file(s)
+          #asset_name: <asset-name>         # Replace with the name of your asset
+          #asset_content_type: application/zip
