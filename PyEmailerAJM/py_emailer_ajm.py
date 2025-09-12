@@ -25,9 +25,9 @@ import questionary
 from prompt_toolkit.output.win32 import NoConsoleScreenBufferError
 from win32com.client import CDispatch
 
-from PyEmailerAJM import EmailerNotSetupError, DisplayManualQuit
-from PyEmailerAJM import BasicEmailFolderChoices, deprecated
-from PyEmailerAJM import Msg, FailedMsg
+from PyEmailerAJM import (EmailerNotSetupError, DisplayManualQuit,
+                          BasicEmailFolderChoices, deprecated,
+                          Msg, FailedMsg)
 
 
 class EmailerInitializer:
