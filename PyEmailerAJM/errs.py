@@ -1,6 +1,0 @@
-class EmailerNotSetupError(Exception):
-    ...
-
-
-class DisplayManualQuit(Exception):
-    ...

@@ -3,5 +3,5 @@ __pycache__
 *.log
 /.idea/
 /venv*/
-/dist/
+/*dist/
 /PyEmailerAJM.egg-info/
