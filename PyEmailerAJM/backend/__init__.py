@@ -1,6 +1,22 @@
 from PyEmailerAJM.backend.errs import *
 import warnings
 import functools
+from enum import IntEnum
+
+
+class BasicEmailFolderChoices(IntEnum):
+    INBOX = 6
+    SENT_ITEMS = 5
+    DRAFTS = 16
+    DELETED_ITEMS = 3
+    OUTBOX = 4
+
+    def __str__(self):
+        """Return the enum name as a string."""
+        return self.name
+
+    def __repr__(self):
+        return f"<{self.__class__.__name__}.{self.name} ({self.value})>"
 
 
 def deprecated(reason: str = ""):
