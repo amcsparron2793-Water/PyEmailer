@@ -1,6 +1,4 @@
 from PyEmailerAJM.backend.errs import *
-from PyEmailerAJM.backend.enums import BasicEmailFolderChoices, AlertTypes
-from PyEmailerAJM.backend.the_sandman import TheSandman
 import warnings
 import functools
 
