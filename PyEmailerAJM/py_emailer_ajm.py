@@ -28,6 +28,7 @@ from PyEmailerAJM import (EmailerNotSetupError, DisplayManualQuit,
 from PyEmailerAJM.backend import BasicEmailFolderChoices
 from PyEmailerAJM.searchers import SubjectSearcher
 
+# TODO: ContinuousMonitorEmailer class?
 
 class EmailerInitializer:
     DEFAULT_EMAIL_APP_NAME = 'outlook.application'
