@@ -6,7 +6,7 @@ import win32com.client as win32
 import datetime
 import extract_msg
 from bs4 import BeautifulSoup
-from logging import Logger, getLogger, warning
+from logging import Logger, getLogger, warning, info
 
 
 class _BasicMsgProperties:
@@ -24,7 +24,16 @@ class _BasicMsgProperties:
             return self.email_item.Sender.GetExchangeUser().PrimarySmtpAddress
         # return self.email_item.Sender if hasattr(self.email_item, 'Sender') else self.email_item.sender
         else:
-            return self.email_item.SenderEmailAddress
+            return (self.email_item.SenderEmailAddress
+                    if hasattr(self.email_item, 'SenderEmailAddress')
+                    else self.email_item.Sender)
+
+    @property
+    def sender_email_type(self):
+        if hasattr(self.email_item, 'SenderEmailType'):
+            return self.email_item.SenderEmailType
+        info("\'SenderEmailType\' attribute not found. Defaulting to 'SMTP' for email type.")
+        return "SMTP"
 
     @property
     def sender_name(self):
