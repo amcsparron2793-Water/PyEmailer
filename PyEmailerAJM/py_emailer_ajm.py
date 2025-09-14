@@ -30,18 +30,19 @@ from PyEmailerAJM.searchers import SubjectSearcher
 
 # TODO: ContinuousMonitorEmailer class?
 
+# TODO: ContinuousMonitorEmailer class?
 class EmailerInitializer:
     DEFAULT_EMAIL_APP_NAME = 'outlook.application'
     DEFAULT_NAMESPACE_NAME = 'MAPI'
 
     def __init__(self, display_window: bool,
-                 send_emails: bool, logger: Logger = None,
+                 send_emails: bool, _logger: Logger = None,
                  auto_send: bool = False,
                  email_app_name: str = DEFAULT_EMAIL_APP_NAME,
                  namespace_name: str = DEFAULT_NAMESPACE_NAME, **kwargs):
 
-        self._logger = self._initialize_logger(logger, use_default_logger=kwargs.get('use_default_logger', False))
-        # print("Dummy logger in use!")
+        self._logger = self._initialize_logger(_logger, use_default_logger=kwargs.get('use_default_logger', False))
+        # print("Dummy _logger in use!")
 
         self.email_app_name = email_app_name
         self.namespace_name = namespace_name
@@ -53,9 +54,9 @@ class EmailerInitializer:
         self.send_emails = send_emails
 
     # TODO: replace me with EasyLoggerAJM
-    def _initialize_logger(self, logger=None, **kwargs):
-        if logger:
-            self._logger = logger
+    def _initialize_logger(self, _logger=None, **kwargs):
+        if _logger:
+            self._logger = _logger
             return self._logger
         else:
             self._logger = Logger(__name__)
@@ -63,7 +64,7 @@ class EmailerInitializer:
         if self._logger.hasHandlers():
             return self._logger
         if not kwargs.get('use_default_logger', True):
-            print("not using default logger")
+            print("not using default _logger")
             return self._logger
         return self._initialize_default_logger()
 
@@ -94,12 +95,12 @@ class EmailerInitializer:
         set_handler_levels(**kwargs)
 
         basicConfig(level='INFO', handlers=self._logger.handlers)
-        self._logger.info("basic logger initialized.")
+        self._logger.info("basic _logger initialized.")
         return self._logger
 
     def initialize_new_email(self):
         if hasattr(self, 'email_app') and self.email_app is not None:
-            self.email = Msg(self.email_app.CreateItem(0), logger=self._logger)
+            self.email = Msg(self.email_app.CreateItem(0), _logger=self._logger)
             return self.email
         raise AttributeError("email_app is not defined. Run 'initialize_email_item_app_and_namespace' first")
 
@@ -134,11 +135,11 @@ class PyEmailer(EmailerInitializer, SubjectSearcher):
     DEFAULT_TEMP_SAVE_PATH = gettempdir()
     VALID_EMAIL_FOLDER_CHOICES = [x for x in BasicEmailFolderChoices]
 
-    def __init__(self, display_window: bool, send_emails: bool, logger: Logger = None, email_sig_filename: str = None,
+    def __init__(self, display_window: bool, send_emails: bool, _logger: Logger = None, email_sig_filename: str = None,
                  auto_send: bool = False, email_app_name: str = EmailerInitializer.DEFAULT_EMAIL_APP_NAME,
                  namespace_name: str = EmailerInitializer.DEFAULT_NAMESPACE_NAME, **kwargs):
 
-        super().__init__(display_window, send_emails, logger, auto_send, email_app_name, namespace_name, **kwargs)
+        super().__init__(display_window, send_emails, _logger, auto_send, email_app_name, namespace_name, **kwargs)
         self._setup_was_run = False
         self._current_user_email = None
 
@@ -237,7 +238,7 @@ class PyEmailer(EmailerInitializer, SubjectSearcher):
                     self._logger.error(e, exc_info=True)
                     raise e
 
-    def _GetReadFolder(self, email_dir_index: int = BasicEmailFolderChoices.INBOX):
+    def _get_default_folder_for_email_dir(self,  email_dir_index: int = None, **kwargs):
         # 6 = inbox
         if email_dir_index in self.__class__.VALID_EMAIL_FOLDER_CHOICES:
             self.read_folder = self.namespace.GetDefaultFolder(email_dir_index)
@@ -248,6 +249,27 @@ class PyEmailer(EmailerInitializer, SubjectSearcher):
             except ValueError as e:
                 self._logger.error(e, exc_info=True)
                 raise e
+
+    def _GetReadFolder(self, email_dir_index: int = None, **kwargs):
+        """
+        :param email_dir_index: Specifies the email directory index to be accessed. Defaults to None.
+        :type email_dir_index: int, optional
+        :param kwargs: Additional optional arguments that may be passed. Can include `subfolder_name` to specify a subfolder name, defaulting to 'Inbox'.
+        :type kwargs: dict
+        :return: The folder specified either by the email directory index or the default folder along with the subfolder if applicable.
+        :rtype: object
+        """
+        subfolder_name = kwargs.get('subfolder_name', 'Inbox')
+        if not email_dir_index:
+            email_dir_index = BasicEmailFolderChoices.INBOX
+            self._logger.debug(f">>> email_dir_index not specified, defaulting to '{email_dir_index}' folder. <<<")
+        if not isinstance(email_dir_index, int):
+            self._logger.debug(f">>> email_dir_index is not an int, "
+                              f"defaulting to {email_dir_index} folder and {subfolder_name} subfolder. <<<")
+            return self.namespace.Folders[email_dir_index].Folders[subfolder_name]
+
+        else:
+            return self._get_default_folder_for_email_dir(email_dir_index)
 
     def GetMessages(self, folder_index=None):
         if isinstance(folder_index, int):
@@ -262,7 +284,7 @@ class PyEmailer(EmailerInitializer, SubjectSearcher):
             except TypeError as e:
                 self._logger.error(e, exc_info=True)
                 raise e
-        return [Msg(m, logger=self._logger) for m in self.read_folder.Items]
+        return [Msg(m, _logger=self._logger) for m in self.read_folder.Items]
 
     @deprecated("use Msg classes body attribute instead")
     def GetEmailMessageBody(self, msg):
@@ -298,7 +320,7 @@ class PyEmailer(EmailerInitializer, SubjectSearcher):
     def SetupEmail(self, recipient: str, subject: str, text: str, attachments: list = None, **kwargs):
         self.email = self.email.SetupMsg(sender=self.current_user_email, email_item=self.email(),
                                          recipient=recipient, subject=subject, body=text, attachments=attachments,
-                                         logger=self._logger, **kwargs)
+                                         _logger=self._logger, **kwargs)
         self._setup_was_run = True
         return self.email
 
