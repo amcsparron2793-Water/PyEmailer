@@ -32,7 +32,7 @@ class TheSandman:
         self.sleep_time: int = sleep_time_seconds or self.__class__.DEFAULT_SLEEP_TIME_SECONDS
         self._is_time_remaining = False
         self._sleep_time_string = None
-        self.logger: Union['OverduePlansLogger', getLogger] = kwargs.get('logger', getLogger(__name__))
+        self.logger: getLogger = kwargs.get('logger', getLogger(__name__))
         self.sleep_time_string = self.sleep_time
         self.logger.info(f'TheSandman initialized - {self.sleep_time_string}')
 
