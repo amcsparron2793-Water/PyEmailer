@@ -123,6 +123,10 @@ class EmailerInitializer:
 
 
 class _GeneralSearcher:
+    @abstractmethod
+    def GetMessages(self):
+        ...
+
     @classmethod
     def get_attribute_for_search(cls, message: CDispatch, attribute: str):
         if hasattr(message, attribute):
@@ -133,8 +137,19 @@ class _GeneralSearcher:
         normalized_search_str = self._normalize_string(search_str)
         return normalized_message_attr, normalized_search_str
 
-    def search_for_match(self, normalized_search_str: str, message:CDispatch, normalized_message_attr: str,
-                         partial_match_ok: bool = False):
+    def fetch_matched_messages(self, normalized_search_string: str, normalized_msg_attr: str,
+                               partial_match_ok: bool = False, **kwargs):
+        matched_messages = []
+        for message in self.GetMessages():
+            msg = self._search_for_match(normalized_search_string, message, normalized_msg_attr,
+                                         partial_match_ok, **kwargs)
+            if msg:
+                matched_messages.append(msg)
+                continue
+        return [m() for m in matched_messages]
+
+    def _search_for_match(self, normalized_search_str: str, message: CDispatch, normalized_message_attr: str,
+                          partial_match_ok: bool = False, **kwargs):
         if (self._is_exact_match(normalized_search_str, normalized_message_attr) or
                 (partial_match_ok and self._is_partial_match(normalized_search_str,
                                                              normalized_message_attr))):
@@ -169,12 +184,17 @@ class _SubjectSearcher(_GeneralSearcher):
     def GetMessages(self):
         ...
 
-    def search_for_match(self, search_str: str, message:CDispatch, attribute: str, partial_match_ok: bool = False,
-                         include_fw: bool = True, include_re: bool = True,):
-        # normalized_message_attr = self._normalize_string(_GeneralSearcher.get_attribute_for_search(message, attribute))
-        # normalized_search_str = self._normalize_string(search_str)
-        normalized_message_attr, normalized_search_str = self.get_normalized_attr_and_candidate(message, attribute, search_str)
-        if super().search_for_match(normalized_search_str, message, normalized_message_attr, partial_match_ok):
+    def _search_for_match(self, search_str: str, message: CDispatch,
+                          attribute: str, partial_match_ok: bool = False,
+                          **kwargs):
+        include_fw = kwargs.get('include_fw', True)
+        include_re = kwargs.get('include_re', True)
+
+        (normalized_message_attr,
+         normalized_search_str) = self.get_normalized_attr_and_candidate(message, attribute, search_str)
+
+        if super()._search_for_match(normalized_search_str, message,
+                                     normalized_message_attr, partial_match_ok):
             return message
 
         if include_fw and self._matches_prefix(normalized_search_str,
@@ -188,23 +208,16 @@ class _SubjectSearcher(_GeneralSearcher):
                                                partial_match_ok):
             return message
 
-    def find_messages_by_subject(self, search_subject: str, include_fw: bool = True, include_re: bool = True,
-                                 partial_match_ok: bool = False) -> List[CDispatch]:
+    def find_messages_by_subject(self, search_subject: str, msg_attr: str = 'subject',
+                                 partial_match_ok: bool = False, **kwargs) -> List[CDispatch]:
         """Returns a list of messages matching the given subject, ignoring prefixes based on flags."""
 
         # Normalize search subject
         normalized_subject = self._normalize_string(search_subject)
-        matched_messages = []
+        normalized_msg_attr = self._normalize_string(msg_attr)
 
         print(f"searching for messages with subject \'{search_subject}\' partial match ok: ", partial_match_ok)
-        # TODO: generalize this into a fetch_matched_messages() method for _GeneralSearcher
-        for message in self.GetMessages():
-            msg = self.search_for_match(normalized_subject, message, 'subject',
-                                        partial_match_ok, include_fw, include_re)
-            if msg:
-                matched_messages.append(msg)
-                continue
-        return [m() for m in matched_messages]
+        return self.fetch_matched_messages(normalized_subject, normalized_msg_attr, **kwargs)
 
     def _matches_prefix(self, message_subject: str, prefixes: list, search_subject: str,
                         partial_match_ok: bool = False) -> bool:
@@ -525,11 +538,11 @@ if __name__ == "__main__":
     module_name = __file__.split('\\')[-1].split('.py')[0]
 
     em = PyEmailer(display_window=False, send_emails=True, auto_send=False, use_default_logger=True)
-    m = em.find_messages_by_subject('Andrew', partial_match_ok=True, include_re=True, include_fw=True)
+    m = em.find_messages_by_subject('Andrew', partial_match_ok=True)
     print([type(x) for x in m])
     # __setup_and_send_test(em)
     # __failed_sends_test(em)
-    x = em.find_messages_by_subject("GIS Request", partial_match_ok=True, include_re=False)
+    x = em.find_messages_by_subject("GIS Request", partial_match_ok=True)
     # [x.name for x in m.ItemProperties]
     print([(m.__class__, m.sender, m.sender_email_type, m.subject)
            for m in [Msg(y) for y in x]])  # for m in x])
