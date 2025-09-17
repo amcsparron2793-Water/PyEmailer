@@ -21,9 +21,12 @@ class ContinuousMonitor(PyEmailer, EmailState):
     TITLE_STRING = " Watching for emails with alerts in {} folder ".center(100, '*')
 
     def __init__(self, display_window: bool, send_emails: bool, **kwargs):
-        self._elog = PyEmailerLogger()
+        self._elog = PyEmailerLogger(**kwargs)
         self.logger = self._elog()
         super().__init__(display_window, send_emails, logger=self.logger, **kwargs)
+        # FIXME: bug that causes snooze_tracker
+        #  to use the root logger with basicLogger() config
+        #  unless self.logger.propagate is set to False here.
         self.logger.propagate = False
 
         self.colorizer = ContinuousColorizer(logger=self.logger)
@@ -192,5 +195,5 @@ class ContinuousMonitor(PyEmailer, EmailState):
 
 
 if __name__ == '__main__':
-    cm = ContinuousMonitor(False, False, dev_mode=True, log_level_to_stream='INFO')
+    cm = ContinuousMonitor(False, False, dev_mode=True, show_warning_logs_in_console=True,)
     cm.endless_watch()
