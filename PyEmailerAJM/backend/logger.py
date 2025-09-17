@@ -1,4 +1,4 @@
-from logging import Filter, DEBUG, ERROR, Handler, FileHandler, StreamHandler, setLoggerClass, LogRecord, getLogger
+from logging import Filter, DEBUG, ERROR, Handler, FileHandler, StreamHandler
 
 from EasyLoggerAJM import EasyLogger, OutlookEmailHandler, _EasyLoggerCustomLogger
 from PyEmailerAJM.msg import Msg
@@ -28,6 +28,11 @@ class DupeDebugFilter(Filter):
 
 
 class PyEmailerCustomLogger(_EasyLoggerCustomLogger):
+    def __init__(self, name: str):
+        super().__init__(name)
+        raise NotImplementedError(
+            "PyEmailerCustomLogger is not intended to be used yet, it is still in development ")
+
     @staticmethod
     def sanitize_msg(msg):
         # try:
@@ -87,18 +92,19 @@ class PyEmailerLogger(EasyLogger):
         dupe_debug_filter = DupeDebugFilter()
         handler.addFilter(dupe_debug_filter)
 
-    def initialize_logger(self, logger=None):
-        if logger is None:
-            self._internal_logger.info('no passed in logger detected')
-            setLoggerClass(PyEmailerCustomLogger)
-
-            self._internal_logger.info('logger class set to PyEmailerCustomLogger')
-            self.logger = getLogger('logger')
-        else:
-            self.logger = logger
-        self.logger = super().initialize_logger(logger=self.logger)
-        # self.logger.propagate = True
-        return self.logger
+    # def initialize_logger(self, logger=None):
+    #     if not logger:
+    #         self._internal_logger.info('no passed in logger detected')
+    #         setLoggerClass(PyEmailerCustomLogger)
+    #         self._internal_logger.info('logger class set to PyEmailerCustomLogger')
+    #         # Create a logger with a specified name and make sure propagate is True
+    #         self.logger = getLogger('logger')
+    #     else:
+    #         self._internal_logger.info(f'passed in logger ({logger}) detected')
+    #         self.logger: getLogger = logger
+    #     self._internal_logger.info('logger initialized')
+    #     self._internal_logger.info(f'propagate set to {self.logger.propagate}')
+    #     return self.logger
 
     def setup_email_handler(self, **kwargs):
         """
@@ -113,6 +119,7 @@ class PyEmailerLogger(EasyLogger):
         # noinspection PyTypeChecker
         OutlookEmailHandler.VALID_EMAIL_MSG_TYPES = [Msg]
 
+        # noinspection PyTypeChecker
         email_handler = OutlookEmailHandler(email_msg=kwargs.get('email_msg', None),
                                             project_name=self.project_name,
                                             logger_dir_path=self.log_location,

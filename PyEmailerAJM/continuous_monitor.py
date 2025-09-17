@@ -23,8 +23,8 @@ class ContinuousMonitor(PyEmailer, EmailState):
     def __init__(self, display_window: bool, send_emails: bool, **kwargs):
         self._elog = PyEmailerLogger()
         self.logger = self._elog()
-        print(self.logger.handlers)
         super().__init__(display_window, send_emails, logger=self.logger, **kwargs)
+        self.logger.propagate = False
 
         self.colorizer = ContinuousColorizer(logger=self.logger)
         self.dev_mode = kwargs.get('dev_mode', False)
@@ -37,7 +37,6 @@ class ContinuousMonitor(PyEmailer, EmailState):
                 f"WARNING: this is a DEVELOPMENT MODE emailer,"
                 f" it will mock send emails but not actually send them to {self.__class__.ADMIN_EMAIL}"
             )
-        #super().__init__(display_window, send_emails, logger=self.logger, **kwargs)
         if self.dev_mode:
             self.logger.warning("email handler disabled for dev mode")
         else:
