@@ -15,7 +15,7 @@ import win32com.client as win32
 # This is installed as part of pywin32
 # noinspection PyUnresolvedReferences
 from pythoncom import com_error
-from logging import Logger, basicConfig, StreamHandler, FileHandler
+from logging import Logger, basicConfig, StreamHandler, FileHandler, getLogger
 from email_validator import validate_email, EmailNotValidError
 import questionary
 # this is usually thrown when questionary is used in the dev/Non Win32 environment
@@ -28,9 +28,7 @@ from PyEmailerAJM import (EmailerNotSetupError, DisplayManualQuit,
 from PyEmailerAJM.backend import BasicEmailFolderChoices
 from PyEmailerAJM.searchers import SubjectSearcher
 
-# TODO: ContinuousMonitorEmailer class?
 
-# TODO: ContinuousMonitorEmailer class?
 class EmailerInitializer:
     DEFAULT_EMAIL_APP_NAME = 'outlook.application'
     DEFAULT_NAMESPACE_NAME = 'MAPI'
@@ -100,7 +98,7 @@ class EmailerInitializer:
 
     def initialize_new_email(self):
         if hasattr(self, 'email_app') and self.email_app is not None:
-            self.email = Msg(self.email_app.CreateItem(0), _logger=self._logger)
+            self.email = Msg(self.email_app.CreateItem(0), logger=self._logger)
             return self.email
         raise AttributeError("email_app is not defined. Run 'initialize_email_item_app_and_namespace' first")
 

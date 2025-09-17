@@ -50,7 +50,6 @@ class MsgFactory:
         :param msg: An instance of the message class to be processed.
         :type msg: _AlertMsgBase
         :param kwargs: Additional arguments to be passed for message processing.
-        :type kwargs: dict
         :return: An instance of the appropriate alert message class based on
             the ALERT_LEVEL of the provided message.
         :rtype: Union[_WarningMsg, _CriticalWarningMsg, _OverDueMsg]

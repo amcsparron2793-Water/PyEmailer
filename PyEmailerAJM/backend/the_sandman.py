@@ -21,6 +21,7 @@ class TheSandman:
             sleep_round():
                 Splits the sleep duration into two equal parts. It logs and prints messages depicting the current sleep state, including the remaining time, and sleeps for the given durations.
     """
+    # default 600 secs = 10 minutes
     DEFAULT_SLEEP_TIME_SECONDS = 600
     DEFAULT_SNOOZE_EXPIRATION_LIMIT_HOURS = 24
     SECONDS_IN_HOUR = 3600
@@ -28,13 +29,12 @@ class TheSandman:
     def __init__(self, sleep_time_seconds=None, **kwargs):
         self.snooze_expiration_limit_hours = kwargs.get('snooze_expiration_limit_hours',
                                                         self.__class__.DEFAULT_SNOOZE_EXPIRATION_LIMIT_HOURS)
-        # default 600 secs = 10 minutes
         self.sleep_time: int = sleep_time_seconds or self.__class__.DEFAULT_SLEEP_TIME_SECONDS
         self._is_time_remaining = False
         self._sleep_time_string = None
         self.logger: getLogger = kwargs.get('logger', getLogger(__name__))
         self.sleep_time_string = self.sleep_time
-        self.logger.info(f'TheSandman initialized - {self.sleep_time_string}')
+        self.logger.info(f'TheSandman initialized - sleep time set as {self.sleep_time_string}')
 
     @property
     def sleep_time_string(self):
@@ -60,7 +60,7 @@ class TheSandman:
         """
 
         self.sleep_time_string = self.sleep_time if not self._is_time_remaining else sleep_time_seconds
-        self.logger.debug(self.sleep_time_string)
+        self.logger.info(self.sleep_time_string, **kwargs)
         sleep(sleep_time_seconds)
 
     def sleep_in_rounds(self, rounds=2, **kwargs):

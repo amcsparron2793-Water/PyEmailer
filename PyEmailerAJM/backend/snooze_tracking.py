@@ -53,7 +53,7 @@ class SnoozeTracking:
         :return: The loaded JSON data or an empty dictionary if the file is not found.
         :rtype: dict
         """
-        if not self._json_loaded:
+        if self._json_loaded is None:
             if self.file_path.is_file():
                 with open(self.file_path, 'r') as f:
                     self._json_loaded = json.load(f)

@@ -49,7 +49,11 @@ class _AlertMsgBase(Msg):
     def __init__(self, email_item: win32.CDispatch or 'extract_msg.Message', **kwargs):
         if isinstance(email_item, Msg):
             email_item = email_item()
+
+        self.logger = kwargs.get('logger', None)
+
         super().__init__(email_item, **kwargs)
+
         self.recent_days_cap = kwargs.get('recent_days_cap', self.__class__.ALERT_TIME_HOURS)
         self._msg_snoozed = None
         self._msg_snoozed_time = None

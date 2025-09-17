@@ -1,10 +1,12 @@
 from typing import Optional
-
-from PyEmailerAJM import PyEmailer
-from .backend import EmailState, SnoozeTracking, TheSandman, AlertTypes
 from pathlib import Path
 
-# TODO: get this from colorizerAJM
+from PyEmailerAJM import PyEmailer
+from PyEmailerAJM.backend import (EmailState, SnoozeTracking,
+                                  TheSandman, AlertTypes,
+                                  ContinuousColorizer, PyEmailerLogger)
+from PyEmailerAJM.msg import MsgFactory
+
 NO_COLORIZER = False
 
 
@@ -19,13 +21,15 @@ class ContinuousMonitor(PyEmailer, EmailState):
     TITLE_STRING = " Watching for emails with alerts in {} folder ".center(100, '*')
 
     def __init__(self, display_window: bool, send_emails: bool, **kwargs):
-        super().__init__(display_window, send_emails, **kwargs)
-        self.logger = self._opl()
-        # TODO: add colorizer
-        #self.colorizer = OverdueColorizer(logger=self.logger)
+        self._elog = PyEmailerLogger()
+        self.logger = self._elog()
+        print(self.logger.handlers)
+        super().__init__(display_window, send_emails, logger=self.logger, **kwargs)
+
+        self.colorizer = ContinuousColorizer(logger=self.logger)
         self.dev_mode = kwargs.get('dev_mode', False)
         self.snooze_tracker = SnoozeTracking(Path(kwargs.get('file_name', './snooze_tracker.json')),
-                                             logger=kwargs.get('logger', None))
+                                             logger=kwargs.get('logger', self.logger))
 
         if self.dev_mode:
             self.logger.warning("DEV MODE ACTIVATED!")
@@ -33,15 +37,26 @@ class ContinuousMonitor(PyEmailer, EmailState):
                 f"WARNING: this is a DEVELOPMENT MODE emailer,"
                 f" it will mock send emails but not actually send them to {self.__class__.ADMIN_EMAIL}"
             )
-        super().__init__(logger=self.logger, **kwargs)
+        #super().__init__(display_window, send_emails, logger=self.logger, **kwargs)
         if self.dev_mode:
             self.logger.warning("email handler disabled for dev mode")
         else:
-            self._opl.setup_email_handler(email_msg=self.email,
-                                          logger_admins=self.__class__.ADMIN_EMAIL_LOGGER)
+            self._elog.setup_email_handler(email_msg=self.email,
+                                           logger_admins=self.__class__.ADMIN_EMAIL_LOGGER)
 
         self.sleep_timer = TheSandman(sleep_time_seconds=kwargs.get('sleep_time_seconds', None), logger=self.logger)
-        self.SetupEmail()
+
+    def GetMessages(self, folder_index=None):
+        """
+        :param folder_index: Index of the folder from which messages are retrieved. Defaults to None if not specified.
+        :type folder_index: int, optional
+        :return: A list of sorted and filtered message objects, each containing an alert.
+        :rtype: list
+        """
+        msgs = super().GetMessages(folder_index)
+        sorted_msgs = [MsgFactory.get_msg(x, logger=self.logger, snooze_checker=self.snooze_tracker) for x in msgs]
+        alert_messages = [x for x in sorted_msgs if x is not None and x.msg_alert]
+        return alert_messages
 
     def SetupEmail(self, recipient: Optional[str] = None, subject: str = DEFAULT_SUBJECT,
                    text: str = None, attachments: list = None, **kwargs):
@@ -76,8 +91,10 @@ class ContinuousMonitor(PyEmailer, EmailState):
         :rtype: str
         """
         if NO_COLORIZER:
+            self.logger.debug("colorizer not available, using plain text for alert level")
             rb_alert_string = msg.__class__.ALERT_LEVEL.name
         else:
+            self.logger.debug("colorizer available, using colorized alert level")
             color = self.colorizer.get_alert_color(msg.__class__.ALERT_LEVEL)
             rb_alert_string = self.colorizer.colorize(msg.__class__.ALERT_LEVEL.name,
                                                       color=color,
@@ -158,8 +175,10 @@ class ContinuousMonitor(PyEmailer, EmailState):
         """
         if not self.dev_mode:
             self._set_args_for_endless_watch()
-
-        self.logger.info(self.__class__.TITLE_STRING.format(self.read_folder.name),
+        email_dir_name = None
+        if self.read_folder:
+            email_dir_name = self.read_folder.name
+        self.logger.info(self.__class__.TITLE_STRING.format(email_dir_name),
                          print_msg=True)
 
         while True:
@@ -171,3 +190,8 @@ class ContinuousMonitor(PyEmailer, EmailState):
                 print("goodbye")
                 self.logger.error("KeyboardInterrupt detected, exiting program.")
                 break
+
+
+if __name__ == '__main__':
+    cm = ContinuousMonitor(False, False, dev_mode=True, log_level_to_stream='INFO')
+    cm.endless_watch()

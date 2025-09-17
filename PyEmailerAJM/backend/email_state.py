@@ -58,6 +58,10 @@ class EmailState:
         """
         ...
 
+    @abstractmethod
+    def SetupEmail(self):
+        ...
+
     def _raise_no_messages(self):
         """
         Raises a NoMessagesFetched exception, indicating that the `all_messages` attribute has not been populated.
@@ -74,6 +78,7 @@ class EmailState:
         :return: None
         :rtype: None
         """
+        self.SetupEmail()
         self.logger.info("Refreshing messages from email folder...")
         self.all_messages = self.GetMessages()
         self._was_refreshed = True
