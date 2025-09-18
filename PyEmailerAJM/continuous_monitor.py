@@ -11,8 +11,8 @@ NO_COLORIZER = False
 
 
 class ContinuousMonitor(PyEmailer, EmailState):
-    ADMIN_EMAIL_LOGGER = ['amcsparron@albanyny.gov']
-    ADMIN_EMAIL = ['amcsparron@albanyny.gov']
+    ADMIN_EMAIL_LOGGER = []
+    ADMIN_EMAIL = []
     DEFAULT_SUBJECT = "Email Alert"
     DEFAULT_MSG_BODY = (f"Dear {', '.join([x.split('@')[0] for x in ADMIN_EMAIL])},\n\n"
                         "There is an Email in the inbox that has an alert ({msg_tuple}). \n\n"
@@ -43,6 +43,13 @@ class ContinuousMonitor(PyEmailer, EmailState):
                                            logger_admins=self.__class__.ADMIN_EMAIL_LOGGER)
 
         self.sleep_timer = TheSandman(sleep_time_seconds=kwargs.get('sleep_time_seconds', None), logger=self.logger)
+
+    # TODO: check this for non subclasses also, admin email logger could be optional?
+    def __init_subclass__(cls, **kwargs):
+        class_attrs_to_check = [cls.ADMIN_EMAIL, cls.ADMIN_EMAIL_LOGGER]
+        for c in class_attrs_to_check:
+            if c and len(c) > 0:
+                pass
 
     def GetMessages(self, folder_index=None):
         """

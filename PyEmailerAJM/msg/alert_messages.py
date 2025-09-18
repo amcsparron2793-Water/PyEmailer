@@ -12,7 +12,7 @@ class _AlertMsgBase(Msg):
     A base class for alert message handling that inherits from ``Msg``. This class is designed to evaluate whether a message meets specific alert conditions, such as being unread, not recent, and matching predefined subject keywords.
 
     Attributes:
-        RFI_SUBJECT_KEYWORDS (list): A list of keywords used to identify RFI (Request for Information) messages in the subject.
+        ALERT_SUBJECT_KEYWORDS (list): A list of keywords used to identify RFI (Request for Information) messages in the subject.
         ALERT_LEVEL (AlertTypes, optional): The alert level for the message, should be of type ``AlertTypes``.
         ALERT_TIME_HOURS (int or None): Represents the time, in hours, for an alert validity period. Derived from ``ALERT_LEVEL.value`` if ``ALERT_LEVEL`` is set.
         _ALERT_TIME_HOURS_ERROR (str): Message displayed when ``ALERT_TIME_HOURS`` is not properly set.
@@ -39,8 +39,7 @@ class _AlertMsgBase(Msg):
         msg_is_rfi(cls, msg) -> bool:
             Verifies if the message subject contains any predefined RFI keywords.
     """
-    RFI_SUBJECT_KEYWORDS = ['RFI', 'Request for Information', 'Information',
-                            'Information Request', 'Request', 'Ticket', 'UDig']
+    ALERT_SUBJECT_KEYWORDS = []
     ALERT_LEVEL: AlertTypes = None
     ALERT_TIME_HOURS = ALERT_LEVEL.value if ALERT_LEVEL else None
     _ALERT_TIME_HOURS_ERROR = 'ALERT_TIME_HOURS must be set to an INT value when using this class!'
@@ -64,6 +63,12 @@ class _AlertMsgBase(Msg):
             pass
         else:
             raise AttributeError('ALERT_LEVEL must be set to an AlertTypes value when using this class!')
+        # TODO: implement this as a part of MsgFactory or _AlertMsgBase?
+        if (cls.ALERT_SUBJECT_KEYWORDS
+                and len(cls.ALERT_SUBJECT_KEYWORDS) > 0):
+            pass
+        else:
+            raise AttributeError('ALERT_SUBJECT_KEYWORDS must be a non-empty list of strings!')
 
     def _still_snoozed_check(self):
         snooze_checker_entry = self.snooze_checker.read_entry(self.subject)
@@ -92,7 +97,7 @@ class _AlertMsgBase(Msg):
         """
         still_snoozed = self._still_snoozed_check()
         if not still_snoozed:
-            if self.email_item.Unread and not self._msg_is_recent() and self.msg_is_rfi(self):
+            if self.email_item.Unread and not self._msg_is_recent() and self.msg_is_alert(self):
                 return True
         return False
 
@@ -157,14 +162,16 @@ class _AlertMsgBase(Msg):
         return super()._msg_is_recent(recent_days_cap=days_limit)
 
     @classmethod
-    def msg_is_rfi(cls, msg: Msg):
+    def msg_is_alert(cls, msg: Msg):
         """
         Checks if the message subject contains any predefined RFI (Request for Information) keywords.
 
         :return: True if the subject contains any RFI keywords, False otherwise
         :rtype: bool
         """
-        if any((x for x in cls.RFI_SUBJECT_KEYWORDS
+        if cls.ALERT_SUBJECT_KEYWORDS is None:
+            raise AttributeError('ALERT_SUBJECT_KEYWORDS must be a non-empty list of strings!')
+        if any((x for x in cls.ALERT_SUBJECT_KEYWORDS
                 if x.lower() in msg.subject.lower())):
             return True
         return False
@@ -210,7 +217,7 @@ class _OverDueMsg(_AlertMsgBase):
         or related to a Request For Information (RFI).
 
     Attributes:
-        RFI_SUBJECT_KEYWORDS: List of keywords used to identify if a message
+        ALERT_SUBJECT_KEYWORDS: List of keywords used to identify if a message
             subject relates to a Request For Information (RFI).
 
     Methods:
