@@ -1,4 +1,6 @@
+import logging
 from logging import Filter, DEBUG, ERROR, Handler, FileHandler, StreamHandler
+from typing import Union
 
 from EasyLoggerAJM import EasyLogger, OutlookEmailHandler, _EasyLoggerCustomLogger
 from PyEmailerAJM.msg import Msg
@@ -89,6 +91,11 @@ class PyEmailerLogger(EasyLogger):
 
     def _set_logger_class(self, logger_class=PyEmailerCustomLogger, **kwargs):
         return super()._set_logger_class(logger_class=logger_class, **kwargs)
+
+    def initialize_logger(self, logger=None, **kwargs) -> Union[logging.Logger, _EasyLoggerCustomLogger]:
+        self.logger = super().initialize_logger(logger=logger, **kwargs)
+        self.logger.propagate = False
+        return self.logger
 
     def setup_email_handler(self, **kwargs):
         """

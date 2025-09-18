@@ -11,8 +11,8 @@ NO_COLORIZER = False
 
 
 class ContinuousMonitor(PyEmailer, EmailState):
-    ADMIN_EMAIL_LOGGER = ['amcsparron@albanyny.gov']  # , 'pbehnke@albanyny.gov']
-    ADMIN_EMAIL = ['amcsparron@albanyny.gov']  # , 'pbehnke@albanyny.gov']
+    ADMIN_EMAIL_LOGGER = ['amcsparron@albanyny.gov']
+    ADMIN_EMAIL = ['amcsparron@albanyny.gov']
     DEFAULT_SUBJECT = "Email Alert"
     DEFAULT_MSG_BODY = (f"Dear {', '.join([x.split('@')[0] for x in ADMIN_EMAIL])},\n\n"
                         "There is an Email in the inbox that has an alert ({msg_tuple}). \n\n"
@@ -24,10 +24,6 @@ class ContinuousMonitor(PyEmailer, EmailState):
         self._elog = PyEmailerLogger(**kwargs)
         self.logger = self._elog()
         super().__init__(display_window, send_emails, logger=self.logger, **kwargs)
-        # FIXME: bug that causes snooze_tracker
-        #  to use the root logger with basicLogger() config
-        #  unless self.logger.propagate is set to False here.
-        self.logger.propagate = False
 
         self.colorizer = ContinuousColorizer(logger=self.logger)
         self.dev_mode = kwargs.get('dev_mode', False)
