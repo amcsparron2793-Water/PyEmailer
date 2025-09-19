@@ -2,7 +2,7 @@ from typing import Union, Tuple
 
 from ColorizerAJM import Colorizer
 
-from . import AlertTypes
+from PyEmailerAJM.backend import AlertTypes
 
 
 class ContinuousColorizer(Colorizer):

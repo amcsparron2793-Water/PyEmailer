@@ -3,7 +3,6 @@ from PyEmailerAJM.backend.enums import BasicEmailFolderChoices, AlertTypes
 from PyEmailerAJM.backend.the_sandman import TheSandman
 from PyEmailerAJM.backend.email_state import EmailState
 from PyEmailerAJM.backend.snooze_tracking import SnoozeTracking
-from PyEmailerAJM.backend.continuous_colorizer import ContinuousColorizer
 from PyEmailerAJM.backend.logger import PyEmailerLogger
 import warnings
 import functools
