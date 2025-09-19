@@ -9,29 +9,34 @@ from PyEmailerAJM.backend import AlertTypes
 
 class _AlertMsgBase(Msg):
     """
-    A base class for alert message handling that inherits from ``Msg``. This class is designed to evaluate whether a message meets specific alert conditions, such as being unread, not recent, and matching predefined subject keywords.
+    A base class for alert message handling that inherits from ``Msg``.
+    This class is designed to evaluate whether a message meets specific
+    alert conditions, such as being unread, not recent, and matching predefined subject keywords.
 
     Attributes:
-        ALERT_SUBJECT_KEYWORDS (list): A list of keywords used to identify RFI (Request for Information) messages in the subject.
         ALERT_LEVEL (AlertTypes, optional): The alert level for the message, should be of type ``AlertTypes``.
-        ALERT_TIME_HOURS (int or None): Represents the time, in hours, for an alert validity period. Derived from ``ALERT_LEVEL.value`` if ``ALERT_LEVEL`` is set.
+        ALERT_TIME_HOURS (int or None): Represents the time, in hours, for an alert validity period.
+            Derived from ``ALERT_LEVEL.value`` if ``ALERT_LEVEL`` is set.
         _ALERT_TIME_HOURS_ERROR (str): Message displayed when ``ALERT_TIME_HOURS`` is not properly set.
 
     Methods:
         __init__(self, email_item, **kwargs):
-            Initializes the alert message object. Determines the cap for recent days from the provided or default ``ALERT_TIME_HOURS``.
+            Initializes the alert message object. Determines the cap for recent days
+                from the provided or default ``ALERT_TIME_HOURS``.
 
         __init_subclass__(cls, **kwargs):
             Ensures subclasses properly define the ``ALERT_LEVEL`` attribute as an ``AlertTypes`` value.
 
         msg_alert (bool):
-            Checks if the message is alert-worthy, determining conditions such as being unread, not recent, and containing RFI keywords.
+            Checks if the message is alert-worthy, determining conditions such as
+                being unread, not recent, and containing alert keywords.
 
         alert_time_days (float or None):
             Retrieves the allowed alert time in days, converted from hours.
 
         get_alert_time_days(cls) -> float or None:
-            Returns the converted alert time from hours to days at the class level. If errors occur during conversion, it returns ``None``.
+            Returns the converted alert time from hours to days at the class level.
+                If errors occur during conversion, it returns ``None``.
 
         _msg_is_recent(self, days_limit=None) -> bool:
             Determines whether a message is recent based on a specified or default days limit.
@@ -39,7 +44,6 @@ class _AlertMsgBase(Msg):
         msg_is_rfi(cls, msg) -> bool:
             Verifies if the message subject contains any predefined RFI keywords.
     """
-    ALERT_SUBJECT_KEYWORDS = []
     ALERT_LEVEL: AlertTypes = None
     ALERT_TIME_HOURS = ALERT_LEVEL.value if ALERT_LEVEL else None
     _ALERT_TIME_HOURS_ERROR = 'ALERT_TIME_HOURS must be set to an INT value when using this class!'
@@ -63,12 +67,6 @@ class _AlertMsgBase(Msg):
             pass
         else:
             raise AttributeError('ALERT_LEVEL must be set to an AlertTypes value when using this class!')
-        # TODO: implement this as a part of MsgFactory or _AlertMsgBase?
-        if (cls.ALERT_SUBJECT_KEYWORDS
-                and len(cls.ALERT_SUBJECT_KEYWORDS) > 0):
-            pass
-        else:
-            raise AttributeError('ALERT_SUBJECT_KEYWORDS must be a non-empty list of strings!')
 
     def _still_snoozed_check(self):
         snooze_checker_entry = self.snooze_checker.read_entry(self.subject)
@@ -164,14 +162,12 @@ class _AlertMsgBase(Msg):
     @classmethod
     def msg_is_alert(cls, msg: Msg):
         """
-        Checks if the message subject contains any predefined RFI (Request for Information) keywords.
+        Checks if the message subject contains any predefined alert keywords.
 
-        :return: True if the subject contains any RFI keywords, False otherwise
+        :return: True if the subject contains any alert keywords, False otherwise
         :rtype: bool
         """
-        if cls.ALERT_SUBJECT_KEYWORDS is None:
-            raise AttributeError('ALERT_SUBJECT_KEYWORDS must be a non-empty list of strings!')
-        if any((x for x in cls.ALERT_SUBJECT_KEYWORDS
+        if any((x for x in getattr(cls, 'ALERT_SUBJECT_KEYWORDS')
                 if x.lower() in msg.subject.lower())):
             return True
         return False
