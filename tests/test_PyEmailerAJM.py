@@ -7,8 +7,10 @@ from PyEmailerAJM import PyEmailer, Msg
 
 class TestPyEmailer(unittest.TestCase):
     TEST_ATTACHMENT_NAMES = ['attachment1', 'attachment2']
+    TEST_ADMIN_EMAIL = ['example@example.com']
 
     def setUp(self):
+        PyEmailer.ADMIN_EMAIL = TestPyEmailer.TEST_ADMIN_EMAIL
         self.emailer = PyEmailer(False, False)
 
     @classmethod

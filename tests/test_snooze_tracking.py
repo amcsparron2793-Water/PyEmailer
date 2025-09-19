@@ -1,18 +1,18 @@
-import json
 import logging
 import unittest
 from datetime import datetime, timedelta
-from io import StringIO
 from pathlib import Path
-from unittest.mock import patch, MagicMock, Mock
+from unittest.mock import patch, Mock
 
 from PyEmailerAJM.backend import SnoozeTracking
 
 
 class TestSnoozeTracking(unittest.TestCase):
+    TEST_JSON_PATH = Path("./test.json")
 
     def setUp(self):
-        self.file_path = Path("/tmp/test.json")
+        self.file_path = self.__class__.TEST_JSON_PATH
+
         self.logger = logging.getLogger('test_logger')
         self.subject = "Test Email Subject"
         self.snooze_time = datetime.now() + timedelta(days=2)
@@ -22,6 +22,13 @@ class TestSnoozeTracking(unittest.TestCase):
 
         self.snooze_tracking = SnoozeTracking(self.file_path, logger=self.logger)
 
+    @classmethod
+    def tearDownClass(cls):
+        cls.TEST_JSON_PATH.unlink()
+
+    @unittest.skip("this test only works if the file "
+                   "is NOT deleted by tearDownClass, "
+                   "then the test is run again")
     @patch('json.load')
     @patch('builtins.open')
     def test_json_loaded(self, mock_open, mock_json_load):
@@ -50,11 +57,15 @@ class TestSnoozeTracking(unittest.TestCase):
     @patch('json.dump')
     @patch('builtins.open')
     def test_save_json(self, mock_open, mock_json_dump):
-        self.snooze_tracking._json_loaded = self.email_entries
-        self.snooze_tracking.save_json()
-        self.logger.info.assert_called_with(f"json saved to {self.file_path}")
-        mock_open.assert_called_once_with(self.file_path, 'w')
-        mock_json_dump.assert_called_once()
+        with patch.object(self.logger, 'info') as mock_info:  # Mock the logger.info method
+            self.snooze_tracking._json_loaded = self.email_entries
+            self.snooze_tracking.save_json()
+
+            # Use the mocked `info` method with assert_called.
+            mock_info.assert_called_with(f"json saved to {self.file_path}")
+
+            mock_open.assert_called_once_with(self.file_path, 'w')
+            mock_json_dump.assert_called_once()
 
     def test_read_entry(self):
         self.snooze_tracking._json_loaded = self.email_entries

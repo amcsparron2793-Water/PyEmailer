@@ -64,9 +64,6 @@ class ContinuousMonitorInitializer(PyEmailer, EmailState):
         self.log_dev_mode_warnings()
         self.email_handler_init()
 
-    def __init_subclass__(cls, **kwargs):
-        cls.check_for_class_attrs(cls.ATTRS_TO_CHECK)
-
     @classmethod
     def check_for_class_attrs(cls, class_attrs_to_check):
         for c in class_attrs_to_check:
@@ -107,6 +104,9 @@ class ContinuousMonitor(ContinuousMonitorInitializer):
                         "Thanks,\n"
                         "{email_sender}")
     TITLE_STRING = " Watching for emails with alerts in {} folder ".center(100, '*')
+
+    def __init_subclass__(cls, **kwargs):
+        cls.check_for_class_attrs(cls.ATTRS_TO_CHECK)
 
     def GetMessages(self, folder_index=None):
         """
