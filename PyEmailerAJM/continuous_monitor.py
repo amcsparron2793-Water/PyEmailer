@@ -19,37 +19,51 @@ class ContinuousMonitor(PyEmailer, EmailState):
                         "Thanks,\n"
                         "{email_sender}")
     TITLE_STRING = " Watching for emails with alerts in {} folder ".center(100, '*')
+    ATTRS_TO_CHECK = ['ADMIN_EMAIL', 'ADMIN_EMAIL_LOGGER']
 
     def __init__(self, display_window: bool, send_emails: bool, **kwargs):
         self._elog = PyEmailerLogger(**kwargs)
         self.logger = self._elog()
-        super().__init__(display_window, send_emails, logger=self.logger, **kwargs)
+        self.dev_mode = kwargs.get('dev_mode', False)
+
+        super().__init__(display_window, send_emails,
+                         logger=self.logger, **kwargs)
 
         self.colorizer = ContinuousColorizer(logger=self.logger)
-        self.dev_mode = kwargs.get('dev_mode', False)
         self.snooze_tracker = SnoozeTracking(Path(kwargs.get('file_name', './snooze_tracker.json')),
                                              logger=kwargs.get('logger', self.logger))
 
+        self.log_dev_mode_warnings()
+        self.email_handler_init()
+
+        self.sleep_timer = TheSandman(sleep_time_seconds=kwargs.get('sleep_time_seconds', None), logger=self.logger)
+        self.check_for_class_attrs(self.__class__.ATTRS_TO_CHECK)
+
+    def __init_subclass__(cls, **kwargs):
+        cls.check_for_class_attrs(cls.ATTRS_TO_CHECK)
+
+    @classmethod
+    def check_for_class_attrs(cls, class_attrs_to_check):
+        for c in class_attrs_to_check:
+            if hasattr(cls, c) and isinstance(c, list) and len(c) > 0:
+                pass
+            raise ValueError(f"{c} must be a list of email addresses")
+
+    def log_dev_mode_warnings(self):
         if self.dev_mode:
             self.logger.warning("DEV MODE ACTIVATED!")
             self.logger.warning(
                 f"WARNING: this is a DEVELOPMENT MODE emailer,"
                 f" it will mock send emails but not actually send them to {self.__class__.ADMIN_EMAIL}"
             )
+
+    def email_handler_init(self):
         if self.dev_mode:
             self.logger.warning("email handler disabled for dev mode")
         else:
             self._elog.setup_email_handler(email_msg=self.email,
                                            logger_admins=self.__class__.ADMIN_EMAIL_LOGGER)
-
-        self.sleep_timer = TheSandman(sleep_time_seconds=kwargs.get('sleep_time_seconds', None), logger=self.logger)
-
-    # TODO: check this for non subclasses also, admin email logger could be optional?
-    def __init_subclass__(cls, **kwargs):
-        class_attrs_to_check = [cls.ADMIN_EMAIL, cls.ADMIN_EMAIL_LOGGER]
-        for c in class_attrs_to_check:
-            if c and len(c) > 0:
-                pass
+            self.logger.info("email handler initialized")
 
     def GetMessages(self, folder_index=None):
         """
