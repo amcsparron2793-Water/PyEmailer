@@ -50,6 +50,7 @@ class MsgFactory:
         :rtype: object or None
         """
         for msg_type_class in cls.MSG_CLASSES:
+            msg_type_class.ALERT_SUBJECT_KEYWORDS = cls.ALERT_SUBJECT_KEYWORDS
             m_type = msg_type_class(msg, **kwargs)
             if m_type.msg_alert:
                 return m_type
@@ -69,10 +70,13 @@ class MsgFactory:
             if not isinstance(msg.ALERT_LEVEL, AlertTypes):
                 raise InvalidAlertLevel(msg)
             if msg.ALERT_LEVEL.value == AlertTypes.WARNING.value:
+                _WarningMsg.ALERT_SUBJECT_KEYWORDS = cls.ALERT_SUBJECT_KEYWORDS
                 return _WarningMsg(msg(), **kwargs)
             if msg.ALERT_LEVEL.value == AlertTypes.CRITICAL_WARNING.value:
+                _CriticalWarningMsg.ALERT_SUBJECT_KEYWORDS = cls.ALERT_SUBJECT_KEYWORDS
                 return _CriticalWarningMsg(msg(), **kwargs)
             if msg.ALERT_LEVEL.value == AlertTypes.OVERDUE.value:
+                _OverDueMsg.ALERT_SUBJECT_KEYWORDS = cls.ALERT_SUBJECT_KEYWORDS
                 return _OverDueMsg(msg(), **kwargs)
             else:
                 raise InvalidAlertLevel(msg)

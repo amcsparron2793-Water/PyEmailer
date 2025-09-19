@@ -29,14 +29,11 @@ class ContinuousMonitor(PyEmailer, EmailState):
         super().__init__(display_window, send_emails,
                          logger=self.logger, **kwargs)
 
-        self.colorizer = ContinuousColorizer(logger=self.logger)
-        self.snooze_tracker = SnoozeTracking(Path(kwargs.get('file_name', './snooze_tracker.json')),
-                                             logger=kwargs.get('logger', self.logger))
+        self.colorizer, self.snooze_tracker, self.sleep_timer = self.initialize_helper_classes(**kwargs)
 
         self.log_dev_mode_warnings()
         self.email_handler_init()
 
-        self.sleep_timer = TheSandman(sleep_time_seconds=kwargs.get('sleep_time_seconds', None), logger=self.logger)
         self.check_for_class_attrs(self.__class__.ATTRS_TO_CHECK)
 
     def __init_subclass__(cls, **kwargs):
@@ -48,6 +45,13 @@ class ContinuousMonitor(PyEmailer, EmailState):
             if hasattr(cls, c) and isinstance(c, list) and len(c) > 0:
                 pass
             raise ValueError(f"{c} must be a list of email addresses")
+
+    def initialize_helper_classes(self, **kwargs):
+        colorizer = ContinuousColorizer(logger=self.logger)
+        snooze_tracker = SnoozeTracking(Path(kwargs.get('file_name', './snooze_tracker.json')),
+                                        logger=kwargs.get('logger', self.logger))
+        sleep_timer = TheSandman(sleep_time_seconds=kwargs.get('sleep_time_seconds', None), logger=self.logger)
+        return colorizer, snooze_tracker, sleep_timer
 
     def log_dev_mode_warnings(self):
         if self.dev_mode:
@@ -212,5 +216,5 @@ class ContinuousMonitor(PyEmailer, EmailState):
 
 
 if __name__ == '__main__':
-    cm = ContinuousMonitor(False, False, dev_mode=True, show_warning_logs_in_console=True,)
+    cm = ContinuousMonitor(False, False, dev_mode=True, show_warning_logs_in_console=True, )
     cm.endless_watch()
