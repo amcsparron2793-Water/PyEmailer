@@ -105,6 +105,11 @@ class ContinuousMonitor(ContinuousMonitorInitializer):
                         "{email_sender}")
     TITLE_STRING = " Watching for emails with alerts in {} folder ".center(100, '*')
 
+    def __init__(self, display_window: bool, send_emails: bool, **kwargs):
+        super().__init__(display_window, send_emails, **kwargs)
+        if type(self) is ContinuousMonitor:
+            self.__class__.check_for_class_attrs(self.__class__.ATTRS_TO_CHECK)
+
     def __init_subclass__(cls, **kwargs):
         cls.check_for_class_attrs(cls.ATTRS_TO_CHECK)
 
