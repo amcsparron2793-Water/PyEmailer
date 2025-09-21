@@ -75,6 +75,7 @@ class PyEmailerLogger(EasyLogger):
     def _add_filter_to_stream_handler(self, handler: StreamHandler):
         self._add_dupe_debug_to_handler(handler)
 
+    # TODO: add this to EasyLogger?
     @property
     def project_name(self):
         return super().project_name

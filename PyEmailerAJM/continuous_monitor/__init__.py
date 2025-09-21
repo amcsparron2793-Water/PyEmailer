@@ -2,7 +2,7 @@ from pathlib import Path
 
 from PyEmailerAJM import PyEmailer
 from PyEmailerAJM.backend import (EmailState, PyEmailerLogger,
-                                   SnoozeTracking, TheSandman)
+                                  SnoozeTracking, TheSandman)
 from PyEmailerAJM.continuous_monitor.continuous_colorizer import ContinuousColorizer
 
 
@@ -47,7 +47,7 @@ class ContinuousMonitorInitializer(PyEmailer, EmailState):
     ATTRS_TO_CHECK = ['ADMIN_EMAIL', 'ADMIN_EMAIL_LOGGER']
 
     def __init__(self, display_window: bool, send_emails: bool, **kwargs):
-        super().__init__(display_window, send_emails, ** kwargs)
+        super().__init__(display_window, send_emails, **kwargs)
         self._elog = PyEmailerLogger(**kwargs)
         self.logger = self._elog()
 

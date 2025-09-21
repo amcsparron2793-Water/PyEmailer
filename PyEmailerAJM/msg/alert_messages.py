@@ -47,6 +47,8 @@ class _AlertMsgBase(Msg):
     ALERT_LEVEL: AlertTypes = None
     ALERT_TIME_HOURS = ALERT_LEVEL.value if ALERT_LEVEL else None
     _ALERT_TIME_HOURS_ERROR = 'ALERT_TIME_HOURS must be set to an INT value when using this class!'
+    ALERT_SUBJECT_KEYWORD_ERROR = 'ALERT_SUBJECT_KEYWORDS must be a non-empty list of strings!'
+    ATTRS_TO_CHECK = ['ALERT_SUBJECT_KEYWORDS']
 
     # noinspection PyUnresolvedReferences
     def __init__(self, email_item: win32.CDispatch or 'extract_msg.Message', **kwargs):
@@ -61,12 +63,26 @@ class _AlertMsgBase(Msg):
         self._msg_snoozed = None
         self._msg_snoozed_time = None
         self.snooze_checker = kwargs.get('snooze_checker', None)
+        self.__class__.AlertMsgBaseCheckClsAttrs()
 
     def __init_subclass__(cls, **kwargs):
         if cls.ALERT_LEVEL and isinstance(cls.ALERT_LEVEL, AlertTypes):
             pass
         else:
             raise AttributeError('ALERT_LEVEL must be set to an AlertTypes value when using this class!')
+
+    @classmethod
+    def AlertMsgBaseCheckClsAttrs(cls):
+        # FIXME: this should go with each of the alert_msgs??
+        if issubclass(cls, _AlertMsgBase):
+            cls.check_for_class_attrs(cls.ATTRS_TO_CHECK)
+
+    @classmethod
+    def check_for_class_attrs(cls, class_attrs_to_check):
+        for c in class_attrs_to_check:
+            if hasattr(cls, c) and isinstance(getattr(cls, c), list) and len(getattr(cls, c)) > 0:
+                continue
+            raise AttributeError(cls.ALERT_SUBJECT_KEYWORD_ERROR)
 
     def _still_snoozed_check(self):
         snooze_checker_entry = self.snooze_checker.read_entry(self.subject)

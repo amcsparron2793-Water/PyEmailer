@@ -16,14 +16,15 @@ class ContinuousMonitor(ContinuousMonitorInitializer):
                         "Thanks,\n"
                         "{email_sender}")
     TITLE_STRING = " Watching for emails with alerts in {} folder ".center(100, '*')
-    # TODO: make sure logs folder is put at the root of the project!
+    MSG_FACTORY_CLASS: MsgFactory = MsgFactory
+
     def __init__(self, display_window: bool, send_emails: bool, **kwargs):
         super().__init__(display_window, send_emails, **kwargs)
         if not self.dev_mode:
             if type(self) is ContinuousMonitor:
                 self.__class__.check_for_class_attrs(self.__class__.ATTRS_TO_CHECK)
         else:
-            self.logger.warning("IS DEV MODE - NOT checking for class attributes")
+            self.logger.warning("IS DEV MODE - NOT checking for class attributes for ContinuousMonitor")
 
     def __init_subclass__(cls, **kwargs):
         cls.check_for_class_attrs(cls.ATTRS_TO_CHECK)
@@ -36,7 +37,7 @@ class ContinuousMonitor(ContinuousMonitorInitializer):
         :rtype: list
         """
         msgs = super().GetMessages(folder_index)
-        sorted_msgs = [MsgFactory.get_msg(x, logger=self.logger, snooze_checker=self.snooze_tracker) for x in msgs]
+        sorted_msgs = [self.__class__.MSG_FACTORY_CLASS.get_msg(x, logger=self.logger, snooze_checker=self.snooze_tracker) for x in msgs]
         alert_messages = [x for x in sorted_msgs if x is not None and x.msg_alert]
         return alert_messages
 

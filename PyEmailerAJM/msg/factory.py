@@ -28,16 +28,7 @@ class MsgFactory:
     """
     # order is VERY IMPORTANT
     MSG_CLASSES = [_OverDueMsg, _CriticalWarningMsg, _WarningMsg]
-    ALERT_SUBJECT_KEYWORDS = []
-    ALERT_SUBJECT_KEYWORD_ERROR = 'ALERT_SUBJECT_KEYWORDS must be a non-empty list of strings!'
-
-    # TODO: implement this as a part of MsgFactory or _AlertMsgBase?
-    def __init_subclass__(cls, **kwargs):
-        if (cls.ALERT_SUBJECT_KEYWORDS
-                and len(cls.ALERT_SUBJECT_KEYWORDS) > 0):
-            pass
-        else:
-            raise AttributeError(cls.ALERT_SUBJECT_KEYWORD_ERROR)
+    ALERT_SUBJECT_KEYWORDS = []#['keywords']
 
     @classmethod
     def _check_alert_level(cls, msg, **kwargs):
