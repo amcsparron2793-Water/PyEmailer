@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Callable
 
 from PyEmailerAJM.backend import AlertTypes
 from PyEmailerAJM.continuous_monitor import ContinuousMonitorInitializer
@@ -151,36 +151,26 @@ class ContinuousMonitor(ContinuousMonitorInitializer):
 
         self.snooze_tracker.snooze_msgs(self.all_messages)
 
-    def endless_watch(self):
-        """
-        Watches for RFI emails with alerts in the specified folder endlessly in a loop.
-        If not in developer mode, prepares arguments for the endless watch.
-        Logs activity information and checks for alerts continuously.
-        The loop can be interrupted with a keyboard interrupt, which halts the process gracefully.
-
-        :return: None
-        :rtype: None
-
-        """
+    def endless_watch(self, stop_condition: Callable[[], bool] = None):
         if not self.dev_mode:
             self._set_args_for_endless_watch()
-        email_dir_name = None
-        if self.read_folder:
-            email_dir_name = self.read_folder.name
-        self.logger.info(self.__class__.TITLE_STRING.format(email_dir_name),
-                         print_msg=True)
 
-        while True:
+        stop_condition = stop_condition or (lambda: False)  # Default stop_condition
+        email_dir_name = self.read_folder.name if self.read_folder else None
+
+        self.logger.info(self.__class__.TITLE_STRING.format(email_dir_name), print_msg=True)
+
+        while not stop_condition():
             try:
                 self.check_for_alerts()
                 self._was_refreshed = False
                 self.sleep_timer.sleep_in_rounds()
             except KeyboardInterrupt:
-                print("goodbye")
                 self.logger.error("KeyboardInterrupt detected, exiting program.")
                 break
 
 
 if __name__ == '__main__':
+    ContinuousMonitor.MSG_FACTORY_CLASS.ALERT_SUBJECT_KEYWORDS = ['RFI']
     cm = ContinuousMonitor(False, False, dev_mode=True, show_warning_logs_in_console=True, )
     cm.endless_watch()
