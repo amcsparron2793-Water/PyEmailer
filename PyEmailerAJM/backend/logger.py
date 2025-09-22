@@ -59,12 +59,16 @@ class PyEmailerLogger(EasyLogger):
         """
         # noinspection PyTypeChecker
         OutlookEmailHandler.VALID_EMAIL_MSG_TYPES = [Msg]
+        try:
+            # noinspection PyTypeChecker
+            email_handler = OutlookEmailHandler(email_msg=kwargs.get('email_msg', None),
+                                                project_name=self.project_name,
+                                                logger_dir_path=self.log_location,
+                                                recipient=kwargs.get('logger_admins', None))
+        except ValueError as e:
+            self.logger.error(e.args[0], exc_info=True)
+            raise e from None
 
-        # noinspection PyTypeChecker
-        email_handler = OutlookEmailHandler(email_msg=kwargs.get('email_msg', None),
-                                            project_name=self.project_name,
-                                            logger_dir_path=self.log_location,
-                                            recipient=kwargs.get('logger_admins', None))
         email_handler.setLevel(ERROR)
         email_handler.setFormatter(self.formatter)
         self.logger.addHandler(email_handler)
@@ -75,7 +79,6 @@ class PyEmailerLogger(EasyLogger):
     def _add_filter_to_stream_handler(self, handler: StreamHandler):
         self._add_dupe_debug_to_handler(handler)
 
-    # TODO: add this to EasyLogger?
     @property
     def project_name(self):
         return super().project_name
