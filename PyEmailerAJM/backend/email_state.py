@@ -78,7 +78,6 @@ class EmailState:
         :return: None
         :rtype: None
         """
-        self.SetupEmail()
         self.logger.info("Refreshing messages from email folder...")
         self.all_messages = self.GetMessages()
         self._was_refreshed = True

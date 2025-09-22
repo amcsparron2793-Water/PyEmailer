@@ -28,7 +28,11 @@ class ContinuousMonitorAlertSend(ContinuousMonitor):
     def __init_subclass__(cls, **kwargs):
         cls.check_for_class_attrs(cls.ATTRS_TO_CHECK)
 
-
+    def _set_args_for_endless_watch(self):
+        self.send_emails = True
+        self.auto_send = True
+        self.display_window = False
+        self.logger.debug("send_emails, auto_send, and display_window set to True for endless_watch()")
 
     def SetupEmail(self, recipient: Optional[str] = None, subject: str = DEFAULT_SUBJECT,
                    text: str = None, attachments: list = None, **kwargs):
@@ -90,3 +94,7 @@ class ContinuousMonitorAlertSend(ContinuousMonitor):
     def _print_and_send(self, alert_level):
         super()._print_and_send(alert_level)
         self.SendOrDisplay()
+
+    def refresh_messages(self):
+        self.SetupEmail()
+        super().refresh_messages()

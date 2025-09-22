@@ -33,15 +33,9 @@ class ContinuousMonitor(ContinuousMonitorInitializer):
         :return: None
         :rtype: None
         """
-        if issubclass(self.__class__, ContinuousMonitorAlertSend):
-            self.send_emails = True
-            self.auto_send = True
-            self.display_window = False
-            self.logger.debug("send_emails, auto_send, and display_window set to True for endless_watch()")
-        else:
-            self.send_emails = False
-            self.auto_send = False
-            self.display_window = False
+        self.send_emails = False
+        self.auto_send = False
+        self.display_window = False
 
     def _print_and_send(self, alert_level):
         """
