@@ -24,7 +24,8 @@ class ContinuousMonitor(ContinuousMonitorInitializer):
             if type(self) is ContinuousMonitor:
                 self.__class__.check_for_class_attrs(self.__class__.ATTRS_TO_CHECK)
         else:
-            self.logger.warning("IS DEV MODE - NOT checking for class attributes for ContinuousMonitor")
+            self.logger.warning(f"IS DEV MODE - NOT checking for class attributes "
+                                f"({', '.join(self.__class__.ATTRS_TO_CHECK)}) for ContinuousMonitor")
 
     def __init_subclass__(cls, **kwargs):
         cls.check_for_class_attrs(cls.ATTRS_TO_CHECK)
@@ -171,6 +172,6 @@ class ContinuousMonitor(ContinuousMonitorInitializer):
 
 
 if __name__ == '__main__':
-    ContinuousMonitor.MSG_FACTORY_CLASS.ALERT_SUBJECT_KEYWORDS = ['RFI']
+    # ContinuousMonitor.MSG_FACTORY_CLASS.ALERT_SUBJECT_KEYWORDS = ['RFI']
     cm = ContinuousMonitor(False, False, dev_mode=True, show_warning_logs_in_console=True, )
     cm.endless_watch()

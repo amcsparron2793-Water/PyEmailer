@@ -47,7 +47,8 @@ class _AlertMsgBase(Msg):
     ALERT_LEVEL: AlertTypes = None
     ALERT_TIME_HOURS = ALERT_LEVEL.value if ALERT_LEVEL else None
     _ALERT_TIME_HOURS_ERROR = 'ALERT_TIME_HOURS must be set to an INT value when using this class!'
-    ALERT_SUBJECT_KEYWORD_ERROR = 'ALERT_SUBJECT_KEYWORDS must be a non-empty list of strings!'
+    ALERT_SUBJECT_KEYWORD_ERROR = ('ALERT_SUBJECT_KEYWORDS must be a non-empty list of strings! '
+                                   'Override in factory class if needed.')
     ATTRS_TO_CHECK = ['ALERT_SUBJECT_KEYWORDS']
 
     # noinspection PyUnresolvedReferences
