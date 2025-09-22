@@ -48,11 +48,6 @@ class ContinuousMonitorInitializer(PyEmailer, EmailState):
 
     def __init__(self, display_window: bool, send_emails: bool, **kwargs):
         super().__init__(display_window, send_emails, **kwargs)
-        self._elog = PyEmailerLogger(**kwargs)
-        self.logger = self._elog()
-
-        super().__init__(display_window, send_emails,
-                         logger=self.logger, **kwargs)
 
         self.dev_mode = kwargs.get('dev_mode', False)
         self.colorizer, self.snooze_tracker, self.sleep_timer = self.initialize_helper_classes(**kwargs)

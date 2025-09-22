@@ -3,6 +3,7 @@ from os.path import isfile, isabs, abspath, join
 from tempfile import gettempdir
 
 import win32com.client as win32
+from pywintypes import com_error
 import datetime
 import extract_msg
 from bs4 import BeautifulSoup
@@ -93,7 +94,7 @@ class Msg(_BasicMsgProperties):
     def _validate_and_add_attachments(cls, email_item: win32.CDispatch, attachment_list: list = None):
         """ Validate and attach files to the email_item. """
         if not attachment_list:
-            warning("No attachments detected")
+            # warning("No attachments detected")
             return
 
         if not isinstance(attachment_list, list):
@@ -137,12 +138,16 @@ class Msg(_BasicMsgProperties):
             # if the send fails, self.to is NULL, so this needs to be saved in a local variable
             attempted_recipient = self.to
             self.send_success = False
+            self._logger.debug(f"Sending email to {attempted_recipient}")
             self().Send()
             # print(f"Mail sent to {self._recipient}")
             self.send_success = True
             self._logger.info(f"Mail successfully sent to {attempted_recipient}")
         except Exception as e:
-            self._logger.error(e, exc_info=True)
+            if isinstance(e, com_error):
+                self._logger.error(e.args[2][2], exc_info=True)
+            else:
+                self._logger.error(e, exc_info=True)
             raise e
 
     def _ValidateResponseMsg(self):

@@ -172,6 +172,6 @@ class ContinuousMonitor(ContinuousMonitorInitializer):
 
 
 if __name__ == '__main__':
-    # ContinuousMonitor.MSG_FACTORY_CLASS.ALERT_SUBJECT_KEYWORDS = ['RFI']
-    cm = ContinuousMonitor(False, False, dev_mode=True, show_warning_logs_in_console=True, )
+    ContinuousMonitor.MSG_FACTORY_CLASS.ALERT_SUBJECT_KEYWORDS = ['training']
+    cm = ContinuousMonitor(False, False, dev_mode=False, show_warning_logs_in_console=True, )
     cm.endless_watch()
