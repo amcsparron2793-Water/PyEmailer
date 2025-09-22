@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from PyEmailerAJM import PyEmailer
-from PyEmailerAJM.backend import (EmailState, PyEmailerLogger,
+from PyEmailerAJM.backend import (EmailState,
                                   SnoozeTracking, TheSandman)
 from PyEmailerAJM.continuous_monitor.continuous_colorizer import ContinuousColorizer
 
@@ -44,7 +44,7 @@ class ContinuousMonitorInitializer(PyEmailer, EmailState):
     """
     ADMIN_EMAIL_LOGGER = []
     ADMIN_EMAIL = []
-    ATTRS_TO_CHECK = ['ADMIN_EMAIL', 'ADMIN_EMAIL_LOGGER']
+    ATTRS_TO_CHECK = []
 
     def __init__(self, display_window: bool, send_emails: bool, **kwargs):
         super().__init__(display_window, send_emails, **kwargs)
@@ -80,7 +80,15 @@ class ContinuousMonitorInitializer(PyEmailer, EmailState):
     def email_handler_init(self):
         if self.dev_mode:
             self.logger.warning("email handler disabled for dev mode")
+        elif not issubclass(self.__class__, ContinuousMonitorAlertSend):
+            self.logger.warning(
+                f"email handler not initialized because this is not a ContinuousMonitorAlertSend subclass"
+            )
         else:
             self._elog.setup_email_handler(email_msg=self.email,
                                            logger_admins=self.__class__.ADMIN_EMAIL_LOGGER)
             self.logger.info("email handler initialized")
+
+
+from PyEmailerAJM.continuous_monitor.continuous_monitor import ContinuousMonitor
+from PyEmailerAJM.continuous_monitor.continuous_monitor_alert_send import ContinuousMonitorAlertSend
