@@ -1,3 +1,4 @@
+from abc import abstractmethod
 from pathlib import Path
 
 from PyEmailerAJM import PyEmailer
@@ -80,7 +81,7 @@ class ContinuousMonitorBase(PyEmailer, EmailState):
         if self.dev_mode:
             self.logger.warning("email handler disabled for dev mode")
         # FIXME: this doesnt work, need a different way to do it
-        elif not (self.__class__ == 'ContinuousMonitorAlertSend'):
+        elif not type(self).__name__ == "ContinuousMonitorAlertSend":
             self.logger.warning(
                 f"email handler not initialized because this is not a ContinuousMonitorAlertSend subclass"
             )

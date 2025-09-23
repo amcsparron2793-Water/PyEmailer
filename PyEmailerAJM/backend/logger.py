@@ -131,7 +131,7 @@ class PyEmailerLogger(EasyLogger):
         self.create_other_handlers(StreamHandlerIgnoreExecInfo, handler_args={}, logging_level=WARNING,
                                    formatter=self.stream_formatter)
         if removed_handler:
-            self.logger.warning(f"removed {removed_handler}")
+            self.logger.debug(f"removed {removed_handler}")
 
     def _create_handler_instance(self, handler_to_create, handler_args, **kwargs):
         # need to remove these two kwargs so that the handler instance doesn't cause 'unexpected kwarg' issues
