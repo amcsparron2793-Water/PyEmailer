@@ -6,9 +6,9 @@ from PyEmailerAJM.backend import (EmailState,
 from PyEmailerAJM.continuous_monitor.continuous_colorizer import ContinuousColorizer
 
 
-class ContinuousMonitorInitializer(PyEmailer, EmailState):
+class ContinuousMonitorBase(PyEmailer, EmailState):
     """
-    Class ContinuousMonitorInitializer provides functionality to initialize and manage continuous monitoring
+    Class ContinuousMonitorBase provides functionality to initialize and manage continuous monitoring
     with optional email notifications. It extends the PyEmailer and EmailState classes and incorporates helper
     classes for additional functionalities.
 
@@ -19,7 +19,7 @@ class ContinuousMonitorInitializer(PyEmailer, EmailState):
 
     Methods:
         __init__(display_window: bool, send_emails: bool, **kwargs):
-            Initializes an instance of ContinuousMonitorInitializer, setting up logging, helper classes,
+            Initializes an instance of ContinuousMonitorBase, setting up logging, helper classes,
             and initial email configurations. This also checks for a development mode and applies any specified
             behavior accordingly.
 
@@ -80,7 +80,8 @@ class ContinuousMonitorInitializer(PyEmailer, EmailState):
     def email_handler_init(self):
         if self.dev_mode:
             self.logger.warning("email handler disabled for dev mode")
-        elif not issubclass(self.__class__, ContinuousMonitorAlertSend):
+        # FIXME: this doesnt work, need a different way to do it
+        elif not (self.__class__ == 'ContinuousMonitorAlertSend'):
             self.logger.warning(
                 f"email handler not initialized because this is not a ContinuousMonitorAlertSend subclass"
             )

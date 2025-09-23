@@ -98,3 +98,11 @@ class ContinuousMonitorAlertSend(ContinuousMonitor):
     def refresh_messages(self):
         self.SetupEmail()
         super().refresh_messages()
+
+
+if __name__ == '__main__':
+    ContinuousMonitorAlertSend.MSG_FACTORY_CLASS.ALERT_SUBJECT_KEYWORDS = ['training']
+    ContinuousMonitorAlertSend.ADMIN_EMAIL = ['<EMAIL>']
+    ContinuousMonitorAlertSend.ADMIN_EMAIL_LOGGER = ['<EMAIL>']
+    cm = ContinuousMonitorAlertSend(False, False, dev_mode=False, show_warning_logs_in_console=True, )
+    cm.endless_watch()

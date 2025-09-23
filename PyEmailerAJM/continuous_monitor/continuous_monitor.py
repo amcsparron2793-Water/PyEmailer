@@ -1,18 +1,15 @@
 from typing import Optional, Callable, TYPE_CHECKING
 
 from PyEmailerAJM.backend import AlertTypes
-from PyEmailerAJM.continuous_monitor import ContinuousMonitorInitializer
+from PyEmailerAJM.continuous_monitor import ContinuousMonitorBase
 if TYPE_CHECKING:
     from PyEmailerAJM.continuous_monitor import ContinuousMonitorAlertSend
 from PyEmailerAJM.msg import MsgFactory
 
 
-class ContinuousMonitor(ContinuousMonitorInitializer):
+class ContinuousMonitor(ContinuousMonitorBase):
     TITLE_STRING = " Watching for emails with alerts in {} folder ".center(100, '*')
     MSG_FACTORY_CLASS: MsgFactory = MsgFactory
-
-    def __init__(self, display_window: bool, send_emails: bool, **kwargs):
-        super().__init__(display_window, send_emails, **kwargs)
 
     def GetMessages(self, folder_index=None):
         """
@@ -96,5 +93,6 @@ class ContinuousMonitor(ContinuousMonitorInitializer):
 
 
 if __name__ == '__main__':
+    ContinuousMonitor.MSG_FACTORY_CLASS.ALERT_SUBJECT_KEYWORDS = ['training']
     cm = ContinuousMonitor(False, False, dev_mode=False, show_warning_logs_in_console=True, )
     cm.endless_watch()
