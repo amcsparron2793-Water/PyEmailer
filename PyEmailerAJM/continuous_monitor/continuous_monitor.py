@@ -1,7 +1,8 @@
 from typing import Optional, Callable, TYPE_CHECKING
 
 from PyEmailerAJM.backend import AlertTypes
-from PyEmailerAJM.continuous_monitor import ContinuousMonitorBase
+from PyEmailerAJM.continuous_monitor.backend.continuous_monitor_base import ContinuousMonitorBase
+
 if TYPE_CHECKING:
     from PyEmailerAJM.continuous_monitor import ContinuousMonitorAlertSend
 from PyEmailerAJM.msg import MsgFactory

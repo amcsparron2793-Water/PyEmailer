@@ -1,3 +1,9 @@
+from typing import Optional
+
+# noinspection PyUnresolvedReferences
+from pywintypes import com_error
+
+
 class EmailerNotSetupError(Exception):
     ...
 
@@ -17,3 +23,9 @@ class InvalidAlertLevel(Exception):
 
 class NoMessagesFetched(Exception):
     ...
+
+
+class UnrecognizedEmailError(com_error):
+    def __init__(self, err_msg: Optional[str] = None, **kwargs):
+        self.err_msg = err_msg
+        super().__init__(self.err_msg, **kwargs)

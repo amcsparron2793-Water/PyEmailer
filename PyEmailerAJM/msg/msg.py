@@ -1,8 +1,10 @@
+from ..backend.errs import UnrecognizedEmailError
 from abc import abstractmethod
 from os.path import isfile, isabs, abspath, join
 from tempfile import gettempdir
 
 import win32com.client as win32
+# noinspection PyUnresolvedReferences
 from pywintypes import com_error
 import datetime
 import extract_msg
@@ -145,6 +147,13 @@ class Msg(_BasicMsgProperties):
             self._logger.info(f"Mail successfully sent to {attempted_recipient}")
         except Exception as e:
             if isinstance(e, com_error):
+                if e.args[2][0] == 4096:
+                    try:
+                        raise UnrecognizedEmailError(err_msg=f'{self.to} is not a valid email address. ') from None
+                    except UnrecognizedEmailError as e:
+                        self._logger.error(e, exc_info=True)
+                        return
+
                 self._logger.error(e.args[2][2], exc_info=True)
             else:
                 self._logger.error(e, exc_info=True)

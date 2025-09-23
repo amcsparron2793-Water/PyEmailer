@@ -1,9 +1,8 @@
-import logging
-from logging import Filter, DEBUG, ERROR, Handler, FileHandler, StreamHandler
+from logging import Filter, DEBUG, ERROR, Handler, FileHandler, StreamHandler, Logger, getLevelName, WARNING, INFO
 from pathlib import Path
 from typing import Union
 
-from EasyLoggerAJM import EasyLogger, OutlookEmailHandler, _EasyLoggerCustomLogger
+from EasyLoggerAJM import EasyLogger, OutlookEmailHandler, _EasyLoggerCustomLogger, ConsoleOneTimeFilter
 from PyEmailerAJM.msg import Msg
 from PyEmailerAJM import __project_name__, __project_root__
 
@@ -31,8 +30,38 @@ class DupeDebugFilter(Filter):
         return False
 
 
+class StreamHandlerIgnoreExecInfo(StreamHandler):
+    def emit(self, record):
+        # Temporarily remove exc_info for this handler
+        if record.exc_info:
+            # Save the original exc_info
+            orig_exc_info = record.exc_info
+            record.exc_info = None
+
+            # Call the parent class emit method
+            super().emit(record)
+
+            # Restore the original exc_info back to the record
+            record.exc_info = orig_exc_info
+        else:
+            super().emit(record)
+
+
+class PyEmailerCustomLogger(_EasyLoggerCustomLogger):
+    @staticmethod
+    def sanitize_msg(msg):
+        if issubclass(msg.__class__, Exception):
+            msg = str(msg)
+        return _EasyLoggerCustomLogger.sanitize_msg(msg)
+
+
 class PyEmailerLogger(EasyLogger):
     ROOT_LOG_LOCATION_DEFAULT = Path(__project_root__, 'logs').resolve()
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._replace_basic_stream_handler()
+        self.post_handler_setup()
 
     def __call__(self):
         return self.logger
@@ -42,7 +71,10 @@ class PyEmailerLogger(EasyLogger):
         dupe_debug_filter = DupeDebugFilter()
         handler.addFilter(dupe_debug_filter)
 
-    def initialize_logger(self, logger=None, **kwargs) -> Union[logging.Logger, _EasyLoggerCustomLogger]:
+    def _set_logger_class(self, logger_class=PyEmailerCustomLogger, **kwargs):
+        return super()._set_logger_class(logger_class=logger_class, **kwargs)
+
+    def initialize_logger(self, logger=None, **kwargs) -> Union[Logger, _EasyLoggerCustomLogger]:
         self.logger = super().initialize_logger(logger=logger, **kwargs)
         self.logger.propagate = False
         return self.logger
@@ -88,3 +120,22 @@ class PyEmailerLogger(EasyLogger):
         if value is None:
             value = __project_name__
         super().__setattr__('_project_name', value)
+
+    def _replace_basic_stream_handler(self):
+        removed_handler = None
+        for handler in self.logger.handlers:
+            if type(handler) is StreamHandler:
+                self.logger.removeHandler(handler)
+                removed_handler = handler
+                break
+        self.create_other_handlers(StreamHandlerIgnoreExecInfo, handler_args={}, logging_level=WARNING,
+                                   formatter=self.stream_formatter)
+        if removed_handler:
+            self.logger.warning(f"removed {removed_handler}")
+
+    def _create_handler_instance(self, handler_to_create, handler_args, **kwargs):
+        # need to remove these two kwargs so that the handler instance doesn't cause 'unexpected kwarg' issues
+        kwargs.pop('logging_level')
+        kwargs.pop('formatter')
+        return super()._create_handler_instance(handler_to_create, handler_args, **kwargs)
+
