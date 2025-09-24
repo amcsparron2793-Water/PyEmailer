@@ -150,6 +150,7 @@ class PyEmailer(EmailerInitializer, SubjectSearcher):
                     self._email_signature = None
         else:
             self._email_signature = None
+            self.logger.info("email_sig_filename not specified, no email signature will be attached.")
 
         return self._email_signature
 

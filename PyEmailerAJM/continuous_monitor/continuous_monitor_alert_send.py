@@ -9,7 +9,7 @@ class ContinuousMonitorAlertSend(ContinuousMonitor):
     ADMIN_EMAIL_LOGGER = []
     ADMIN_EMAIL = []
     DEFAULT_SUBJECT = "Email Alert"
-    DEFAULT_MSG_BODY = (f"Dear {', '.join([x.split('@')[0] for x in ADMIN_EMAIL])},\n\n"
+    DEFAULT_MSG_BODY = ("Dear {admin_email_names},\n\n"
                         "There is an Email in the inbox that has an alert ({msg_tuple}). \n\n"
                         "Thanks,\n"
                         "{email_sender}")
@@ -78,6 +78,11 @@ class ContinuousMonitorAlertSend(ContinuousMonitor):
         return rb_alert_string
 
     @property
+    def email_signature(self):
+        return ('<br>'.join(super().email_signature.split('\n'))
+                if super().email_signature is not None else None)
+
+    @property
     def response_body(self):
         """
         Processes and formats the response body by compiling alert messages and their corresponding alert levels,
@@ -88,21 +93,33 @@ class ContinuousMonitorAlertSend(ContinuousMonitor):
         """
         alert_msgs = [(x.subject, self.get_response_body_alert_level(x)) for x in self.GetMessages()]
         msg_tuple = ', '.join([' - '.join(x) for x in alert_msgs])
-        return self.__class__.DEFAULT_MSG_BODY.format(email_sender=self.email_signature,
-                                                      msg_tuple=msg_tuple).replace('\n', '<br>')
+        formatted_admin_email_names = ', '.join([x.split('@')[0] for
+                                                 x in self.__class__.ADMIN_EMAIL]
+                                                ).replace('\n', '<br>')
+        formatted_full_body = self.__class__.DEFAULT_MSG_BODY.format(email_sender=self.email_signature,
+                                                                     msg_tuple=msg_tuple,
+                                                                     admin_email_names=formatted_admin_email_names
+                                                                     ).replace('\n', '<br>')
+        return formatted_full_body
 
-    def _print_and_send(self, alert_level):
-        super()._print_and_send(alert_level)
-        self.SendOrDisplay()
+    def _postprocess_alert(self, alert_level=None, **kwargs):
+        self.SendOrDisplay(**kwargs)
 
     def refresh_messages(self):
         self.SetupEmail()
         super().refresh_messages()
 
 
+class MyContMonAlertSend(ContinuousMonitorAlertSend):
+    ADMIN_EMAIL_LOGGER = ['amcsparron@albanyny.gov']
+    ADMIN_EMAIL = ADMIN_EMAIL_LOGGER
+
+
 if __name__ == '__main__':
-    ContinuousMonitorAlertSend.MSG_FACTORY_CLASS.ALERT_SUBJECT_KEYWORDS = ['training']
-    ContinuousMonitorAlertSend.ADMIN_EMAIL = ['<EMAIL>']
-    ContinuousMonitorAlertSend.ADMIN_EMAIL_LOGGER = ['<EMAIL>']
-    cm = ContinuousMonitorAlertSend(False, False, dev_mode=False, show_warning_logs_in_console=True, )
+    MyContMonAlertSend.MSG_FACTORY_CLASS.ALERT_SUBJECT_KEYWORDS = ['training']
+    # ContinuousMonitorAlertSend.ADMIN_EMAIL = ['amcsparron@albanyny.gov']
+    # ContinuousMonitorAlertSend.ADMIN_EMAIL_LOGGER = ContinuousMonitorAlertSend.ADMIN_EMAIL
+    cm = MyContMonAlertSend(False, False,
+                            dev_mode=False,
+                            show_warning_logs_in_console=True)#, email_sig_filename='Andrew Full.txt')
     cm.endless_watch()

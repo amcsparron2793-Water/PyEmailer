@@ -2,7 +2,7 @@ from logging import Filter, DEBUG, ERROR, Handler, FileHandler, StreamHandler, L
 from pathlib import Path
 from typing import Union
 
-from EasyLoggerAJM import EasyLogger, OutlookEmailHandler, _EasyLoggerCustomLogger
+from EasyLoggerAJM import EasyLogger, OutlookEmailHandler, StreamHandlerIgnoreExecInfo
 from PyEmailerAJM.msg import Msg
 from PyEmailerAJM import __project_name__, __project_root__
 
@@ -30,52 +30,6 @@ class DupeDebugFilter(Filter):
         return False
 
 
-class StreamHandlerIgnoreExecInfo(StreamHandler):
-    """
-    A custom logging StreamHandler that temporarily suppresses exception information when emitting a log record.
-
-    This handler is useful in scenarios where the exception information (`exc_info` and `exc_text`)
-    should not be included in the StreamHandler output but needs to remain intact in the original log record.
-
-    Methods:
-        emit(record):
-            Handles the log record emission by temporarily removing `exc_info` and `exc_text` attributes
-            from the log record (if present) and restoring them after the emission. If `exc_info` is not
-            present in the record, it simply calls the parent class's `emit` method.
-    """
-    def emit(self, record):
-        """
-        :param record: Log record to be processed and possibly emitted by the handler.
-        :type record: logging.LogRecord
-        :return: None
-        :rtype: None
-        """
-        # Temporarily remove exc_info and exc_text for this handler
-        if record.exc_info:
-            # Save the original exc_info
-            orig_exc_info = record.exc_info
-            orig_exc_text = getattr(record, 'exc_text', None)
-            record.exc_info = None
-            record.exc_text = None
-            try:
-                # Call the parent class emit method
-                super().emit(record)
-            finally:
-                # Restore the original exc_info back to the record
-                record.exc_info = orig_exc_info
-                record.exc_text = orig_exc_text
-        else:
-            super().emit(record)
-
-
-class PyEmailerCustomLogger(_EasyLoggerCustomLogger):
-    @staticmethod
-    def sanitize_msg(msg):
-        if issubclass(msg.__class__, Exception):
-            msg = str(msg)
-        return _EasyLoggerCustomLogger.sanitize_msg(msg)
-
-
 class PyEmailerLogger(EasyLogger):
     ROOT_LOG_LOCATION_DEFAULT = Path(__project_root__, 'logs').resolve()
 
@@ -87,10 +41,7 @@ class PyEmailerLogger(EasyLogger):
         dupe_debug_filter = DupeDebugFilter()
         handler.addFilter(dupe_debug_filter)
 
-    def _set_logger_class(self, logger_class=PyEmailerCustomLogger, **kwargs):
-        return super()._set_logger_class(logger_class=logger_class, **kwargs)
-
-    def initialize_logger(self, logger=None, **kwargs) -> Union[Logger, _EasyLoggerCustomLogger]:
+    def initialize_logger(self, logger=None, **kwargs) -> Union[Logger, '_EasyLoggerCustomLogger']:
         self.logger = super().initialize_logger(logger=logger, **kwargs)
         self.logger.propagate = False
         return self.logger

@@ -1,9 +1,27 @@
+import importlib
 from abc import abstractmethod
 from pathlib import Path
+from typing import TYPE_CHECKING, Optional
 
 from PyEmailerAJM import PyEmailer
 from PyEmailerAJM.backend import EmailState, SnoozeTracking, TheSandman
 from . import ContinuousColorizer
+
+if TYPE_CHECKING:
+    from PyEmailerAJM.backend import AlertTypes
+
+
+def is_instance_of_dynamic(obj, base_class_path):
+    """
+    Check if an object is an instance of a class or its subclass specified by its module path.
+    """
+    try:
+        module_path, class_name = base_class_path.rsplit('.', 1)
+        module = importlib.import_module(module_path)
+        base_class = getattr(module, class_name)
+        return isinstance(obj, base_class)
+    except (ImportError, AttributeError):
+        return False
 
 
 class ContinuousMonitorBase(PyEmailer, EmailState):
@@ -80,8 +98,7 @@ class ContinuousMonitorBase(PyEmailer, EmailState):
     def email_handler_init(self):
         if self.dev_mode:
             self.logger.warning("email handler disabled for dev mode")
-        # FIXME: this doesnt work, need a different way to do it
-        elif not type(self).__name__ == "ContinuousMonitorAlertSend":
+        elif not type(self).__name__ == "ContinuousMonitorAlertSend": #and not is_instance_of_dynamic(self, "ContinuousMonitorAlertSend"):
             self.logger.warning(
                 f"email handler not initialized because this is not a ContinuousMonitorAlertSend subclass"
             )
@@ -89,3 +106,21 @@ class ContinuousMonitorBase(PyEmailer, EmailState):
             self._elog.setup_email_handler(email_msg=self.email,
                                            logger_admins=self.__class__.ADMIN_EMAIL_LOGGER)
             self.logger.info("email handler initialized")
+
+    def _print_and_postprocess(self, alert_level):
+        """
+        :param alert_level: The level of alert to be logged and potentially emailed.
+        :type alert_level
+        :return: None
+        :rtype: None
+        """
+        if not self.dev_mode:
+            self.logger.info(f"{alert_level} found!", print_msg=True)
+            self._postprocess_alert(alert_level)
+        else:
+            self.logger.info(f"{alert_level} found!", print_msg=True)
+            self.logger.warning("IS DEV MODE - NOT postprocessing")
+
+    @abstractmethod
+    def _postprocess_alert(self, alert_level: Optional['AlertTypes'] = None, **kwargs):
+        ...

@@ -1,3 +1,4 @@
+from abc import abstractmethod
 from typing import Callable
 
 from PyEmailerAJM.backend import AlertTypes
@@ -32,18 +33,9 @@ class ContinuousMonitor(ContinuousMonitorBase):
         self.auto_send = False
         self.display_window = False
 
-    def _print_and_send(self, alert_level):
-        """
-        :param alert_level: The level of alert to be logged and potentially emailed.
-        :type alert_level
-        :return: None
-        :rtype: None
-        """
-        if not self.dev_mode:
-            self.logger.info(f"{alert_level} found!", print_msg=True)
-        else:
-            self.logger.info(f"{alert_level} found!", print_msg=True)
-            self.logger.warning("IS DEV MODE - NOT postprocessing")
+    @abstractmethod
+    def _postprocess_alert(self, alert_level=None, **kwargs):
+        ...
 
     def check_for_alerts(self):
         """
@@ -58,13 +50,13 @@ class ContinuousMonitor(ContinuousMonitorBase):
         self.logger.info("\nChecking for emails with an alert...", print_msg=True)
         self.refresh_messages()
         if self.has_overdue:
-            self._print_and_send(AlertTypes.OVERDUE)
+            self._print_and_postprocess(AlertTypes.OVERDUE)
 
         elif self.has_warning:
-            self._print_and_send(AlertTypes.WARNING)
+            self._print_and_postprocess(AlertTypes.WARNING)
 
         elif self.has_critical_warning:
-            self._print_and_send(AlertTypes.CRITICAL_WARNING)
+            self._print_and_postprocess(AlertTypes.CRITICAL_WARNING)
 
         else:
             self.logger.info(f"No emails with an alert detected in {self.read_folder}", print_msg=True)
