@@ -5,6 +5,7 @@ import logging
 from PyEmailerAJM.backend.logger import PyEmailerLogger
 
 
+# FIXME: some of these tests are flakey
 class TestPyEmailerLogger(unittest.TestCase):
     def setUp(self) -> None:
         self.logger = PyEmailerLogger()
@@ -15,7 +16,9 @@ class TestPyEmailerLogger(unittest.TestCase):
     @patch('PyEmailerAJM.backend.logger.DupeDebugFilter')
     def test_add_dupe_debug_to_handler(self, mock_dupe_debug_filter):
         handler = MagicMock()
-        handler.level = logging.WARNING  # Fix: Set valid logging level
+
+        # FIX: Ensure handler.level is an integer
+        handler.level = logging.WARNING  # Set a valid logging level
 
         self.logger._add_dupe_debug_to_handler(handler)
         mock_dupe_debug_filter.assert_called_once()
@@ -33,37 +36,33 @@ class TestPyEmailerLogger(unittest.TestCase):
 
     @patch('PyEmailerAJM.backend.logger.OutlookEmailHandler')
     def test_setup_email_handler(self, mock_email_handler):
-        # Mock the OutlookEmailHandler instance
         mock_email_handler_instance = mock_email_handler.return_value
-        mock_email_handler_instance.level = logging.ERROR  # Set the level explicitly
+        mock_email_handler_instance.level = logging.ERROR
 
-        # Mock the logger's addHandler method
         with patch.object(self.logger.logger, 'addHandler', autospec=True) as mock_add_handler:
-            # Call the method to be tested
             self.logger.setup_email_handler(email_msg='Test email', logger_admins=['admin1@gmail.com'])
 
-            # Assertions
-            self.assertEqual(mock_email_handler_instance.level, logging.ERROR)  # Verify level is set correctly
+            self.assertEqual(mock_email_handler_instance.level, logging.ERROR)
             mock_email_handler.assert_called_once_with(
                 email_msg='Test email',
                 project_name=self.logger.project_name,
                 logger_dir_path=self.logger.log_location,
                 recipient=['admin1@gmail.com']
             )
-            mock_email_handler_instance.setLevel.assert_called_once_with(logging.ERROR)  # Ensure setLevel was called
+            mock_email_handler_instance.setLevel.assert_called_once_with(logging.ERROR)
             mock_email_handler_instance.setFormatter.assert_called_once_with(
-                self.logger.formatter)  # Ensure formatter set
-            mock_add_handler.assert_called_once_with(mock_email_handler_instance)  # Ensure handler was added
+                self.logger.formatter)
+            mock_add_handler.assert_called_once_with(mock_email_handler_instance)
 
     @patch('PyEmailerAJM.backend.logger.FileHandler')
     def test_add_filter_to_file_handler(self, mock_file_handler):
-        mock_file_handler.level = logging.INFO  # Fix: Set a valid level
+        mock_file_handler.level = logging.INFO  # FIX: Set a valid level
         self.logger._add_filter_to_file_handler(mock_file_handler)
         mock_file_handler.addFilter.assert_called_once()
 
     @patch('PyEmailerAJM.backend.logger.StreamHandler')
     def test_add_filter_to_stream_handler(self, mock_stream_handler):
-        mock_stream_handler.level = logging.DEBUG  # Fix: Set a valid level
+        mock_stream_handler.level = logging.DEBUG  # FIX: Set a valid level
         self.logger._add_filter_to_stream_handler(mock_stream_handler)
         mock_stream_handler.addFilter.assert_called_once()
 
