@@ -1,8 +1,8 @@
-from logging import Filter, DEBUG, ERROR, Handler, FileHandler, StreamHandler, Logger, getLevelName, WARNING, INFO
+from logging import Filter, DEBUG, ERROR, Handler, FileHandler, StreamHandler, Logger, WARNING
 from pathlib import Path
 from typing import Union
 
-from EasyLoggerAJM import EasyLogger, OutlookEmailHandler, _EasyLoggerCustomLogger, ConsoleOneTimeFilter
+from EasyLoggerAJM import EasyLogger, OutlookEmailHandler, _EasyLoggerCustomLogger
 from PyEmailerAJM.msg import Msg
 from PyEmailerAJM import __project_name__, __project_root__
 
@@ -32,6 +32,7 @@ class DupeDebugFilter(Filter):
 
 class StreamHandlerIgnoreExecInfo(StreamHandler):
     def emit(self, record):
+        # FIXME: is this an issue with formatting? change formatter - specifically the format_exception?
         # Temporarily remove exc_info for this handler
         if record.exc_info:
             # Save the original exc_info
@@ -57,11 +58,6 @@ class PyEmailerCustomLogger(_EasyLoggerCustomLogger):
 
 class PyEmailerLogger(EasyLogger):
     ROOT_LOG_LOCATION_DEFAULT = Path(__project_root__, 'logs').resolve()
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._replace_basic_stream_handler()
-        self.post_handler_setup()
 
     def __call__(self):
         return self.logger
@@ -121,21 +117,7 @@ class PyEmailerLogger(EasyLogger):
             value = __project_name__
         super().__setattr__('_project_name', value)
 
-    def _replace_basic_stream_handler(self):
-        removed_handler = None
-        for handler in self.logger.handlers:
-            if type(handler) is StreamHandler:
-                self.logger.removeHandler(handler)
-                removed_handler = handler
-                break
-        self.create_other_handlers(StreamHandlerIgnoreExecInfo, handler_args={}, logging_level=WARNING,
-                                   formatter=self.stream_formatter)
-        if removed_handler:
-            self.logger.debug(f"removed {removed_handler}")
-
-    def _create_handler_instance(self, handler_to_create, handler_args, **kwargs):
-        # need to remove these two kwargs so that the handler instance doesn't cause 'unexpected kwarg' issues
-        kwargs.pop('logging_level')
-        kwargs.pop('formatter')
-        return super()._create_handler_instance(handler_to_create, handler_args, **kwargs)
-
+    def create_stream_handler(self, log_level_to_stream=WARNING, **kwargs):
+        stream_handler = kwargs.get('stream_handler_instance', StreamHandlerIgnoreExecInfo())
+        super().create_stream_handler(log_level_to_stream=log_level_to_stream,
+                                      stream_handler_instance=stream_handler, **kwargs)
