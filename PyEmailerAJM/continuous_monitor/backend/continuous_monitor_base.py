@@ -1,27 +1,13 @@
-import importlib
 from abc import abstractmethod
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 
-from PyEmailerAJM import PyEmailer
+from PyEmailerAJM import PyEmailer, is_instance_of_dynamic
 from PyEmailerAJM.backend import EmailState, SnoozeTracking, TheSandman
 from . import ContinuousColorizer
 
 if TYPE_CHECKING:
     from PyEmailerAJM.backend import AlertTypes
-
-
-def is_instance_of_dynamic(obj, base_class_path):
-    """
-    Check if an object is an instance of a class or its subclass specified by its module path.
-    """
-    try:
-        module_path, class_name = base_class_path.rsplit('.', 1)
-        module = importlib.import_module(module_path)
-        base_class = getattr(module, class_name)
-        return isinstance(obj, base_class)
-    except (ImportError, AttributeError):
-        return False
 
 
 class ContinuousMonitorBase(PyEmailer, EmailState):
@@ -98,7 +84,8 @@ class ContinuousMonitorBase(PyEmailer, EmailState):
     def email_handler_init(self):
         if self.dev_mode:
             self.logger.warning("email handler disabled for dev mode")
-        elif not type(self).__name__ == "ContinuousMonitorAlertSend": #and not is_instance_of_dynamic(self, "ContinuousMonitorAlertSend"):
+        elif (not type(self).__name__ == "ContinuousMonitorAlertSend"
+              and not is_instance_of_dynamic(self, "__main__.ContinuousMonitorAlertSend")):
             self.logger.warning(
                 f"email handler not initialized because this is not a ContinuousMonitorAlertSend subclass"
             )
