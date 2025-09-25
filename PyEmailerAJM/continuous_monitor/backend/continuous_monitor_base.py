@@ -92,7 +92,8 @@ class ContinuousMonitorBase(PyEmailer, EmailState):
         else:
             self._elog.setup_email_handler(email_msg=self.email,
                                            logger_admins=self.__class__.ADMIN_EMAIL_LOGGER)
-            self.logger.info("email handler initialized")
+            self.email = self.initialize_new_email()
+            self.logger.info("email handler initialized, initialized a new email object for use by monitor")
 
     def _print_and_postprocess(self, alert_level):
         """
