@@ -5,3 +5,4 @@ __pycache__
 /venv*/
 /*dist/
 /PyEmailerAJM.egg-info/
+snooze*.json
