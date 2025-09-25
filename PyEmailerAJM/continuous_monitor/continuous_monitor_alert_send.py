@@ -110,16 +110,11 @@ class ContinuousMonitorAlertSend(ContinuousMonitor):
         super().refresh_messages()
 
 
-class MyContMonAlertSend(ContinuousMonitorAlertSend):
-    ADMIN_EMAIL_LOGGER = ['amcsparron@albanyny.gov']
-    ADMIN_EMAIL = ADMIN_EMAIL_LOGGER
-
-
 if __name__ == '__main__':
-    MyContMonAlertSend.MSG_FACTORY_CLASS.ALERT_SUBJECT_KEYWORDS = ['training']
-    # ContinuousMonitorAlertSend.ADMIN_EMAIL = ['amcsparron@albanyny.gov']
-    # ContinuousMonitorAlertSend.ADMIN_EMAIL_LOGGER = ContinuousMonitorAlertSend.ADMIN_EMAIL
-    cm = MyContMonAlertSend(False, False,
-                            dev_mode=False,
-                            show_warning_logs_in_console=True)#, email_sig_filename='Andrew Full.txt')
+    ContinuousMonitorAlertSend.MSG_FACTORY_CLASS.ALERT_SUBJECT_KEYWORDS = ['training']
+    ContinuousMonitorAlertSend.ADMIN_EMAIL = ['amcsparron@albanyny.gov']
+    ContinuousMonitorAlertSend.ADMIN_EMAIL_LOGGER = ContinuousMonitorAlertSend.ADMIN_EMAIL
+    cm = ContinuousMonitorAlertSend(False, False,
+                                    dev_mode=False,
+                                    show_warning_logs_in_console=True)  #, email_sig_filename='Andrew Full.txt')
     cm.endless_watch()

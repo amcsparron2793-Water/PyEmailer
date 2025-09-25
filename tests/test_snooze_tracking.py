@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch, Mock
 
-from PyEmailerAJM.backend import SnoozeTracking
+from PyEmailerAJM.continuous_monitor.backend import SnoozeTracking
 
 
 class TestSnoozeTracking(unittest.TestCase):

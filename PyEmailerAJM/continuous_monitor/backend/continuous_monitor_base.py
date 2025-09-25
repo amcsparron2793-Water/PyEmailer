@@ -3,8 +3,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 
 from PyEmailerAJM import PyEmailer, is_instance_of_dynamic
-from PyEmailerAJM.backend import EmailState, SnoozeTracking, TheSandman
-from . import ContinuousColorizer
+from PyEmailerAJM.backend import TheSandman
+from . import ContinuousColorizer, SnoozeTracking, EmailState
 
 if TYPE_CHECKING:
     from PyEmailerAJM.backend import AlertTypes

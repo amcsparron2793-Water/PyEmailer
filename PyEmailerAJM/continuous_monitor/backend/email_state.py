@@ -1,8 +1,8 @@
 from abc import abstractmethod
 from logging import Logger
 from typing import Optional
-from . import AlertTypes
-from . import NoMessagesFetched
+from PyEmailerAJM.backend import AlertTypes
+from PyEmailerAJM.backend import NoMessagesFetched
 
 
 class EmailState:
