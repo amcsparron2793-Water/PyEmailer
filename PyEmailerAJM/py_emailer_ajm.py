@@ -30,6 +30,15 @@ from PyEmailerAJM.searchers import SubjectSearcher
 
 
 class EmailerInitializer:
+    """
+        A class responsible for initializing and handling email-related operations through a specified
+        email application and namespace. The class uses COM (Component Object Model) to interact with
+        the email application and provides mechanisms for logging and email management.
+
+        Attributes:
+            DEFAULT_EMAIL_APP_NAME (str): Default application name for email, set to 'outlook.application'.
+            DEFAULT_NAMESPACE_NAME (str): Default namespace name for the email application, set to 'MAPI'.
+    """
     DEFAULT_EMAIL_APP_NAME = 'outlook.application'
     DEFAULT_NAMESPACE_NAME = 'MAPI'
 
@@ -80,6 +89,40 @@ class EmailerInitializer:
 
 
 class PyEmailer(EmailerInitializer, SubjectSearcher):
+    """
+    The `PyEmailer` class is designed for managing and handling email-related operations.
+    It initializes email client settings, manages email folders, handles email messages,
+    and supports common email-related functionalities such as tracking, setting up emails,
+    and saving attachments.
+    The class extends functionality from `EmailerInitializer` and `SubjectSearcher`.
+
+    Attributes:
+    - `tab_char`: Specifies the tab character to be used.
+    - `signature_dir_path`: Defines the file path to the email signature directory.
+    - `DisplayEmailSendTrackingWarning`: Warning message displayed when email tracking cannot ensure delivery success.
+    - `FAILED_SEND_LOGGER_STRING`: Format string for logging failed email sends.
+    - `DEFAULT_TEMP_SAVE_PATH`: Default temporary directory for saving temporary files.
+    - `VALID_EMAIL_FOLDER_CHOICES`: List of valid folder indices for email directories.
+
+    Methods:
+    - `__init__`: Initializes an instance of the `PyEmailer` class with specified settings and optional arguments.
+    - `current_user_email`: Getter and setter for retrieving or setting the current user's email address.
+    - `email_signature`: Property that retrieves the email signature from a specified signature file.
+    - `send_success`: Getter and setter to track the send status of an email.
+    - `_display_tracking_warning_confirm`: Handles display and confirmation of email tracking warnings interactively.
+    - `display_tracker_check`: Prompts the user to confirm understanding of the email tracking warning; raises an exception if canceled.
+    - `_get_default_folder_for_email_dir`: Retrieves the default folder for a specified email directory index.
+    - `_GetReadFolder`: Helper method that retrieves the specified email folder or default folder, along with an optional subfolder.
+    - `GetMessages`: Retrieves messages from a specified folder or the currently set folder.
+    - `GetEmailMessageBody`: Deprecated method to retrieve the body of an email message; use the `Msg` class's `body` attribute instead.
+    - `FindMsgBySubject`: Deprecated method to search for messages by subject; use `find_messages_by_subject`.
+    - `SaveAllEmailAttachments`: Saves all attachments of a specified email to a given directory path.
+    - `SetupEmail`: Configures an email with recipient, subject, text, and optional attachments.
+    - `_manual_send_loop`: Handles an interactive loop to allow the manual sending of an email.
+
+    This class provides comprehensive methods and attributes for streamlining email-related workflows.
+    It emphasizes interaction, logging, and error handling for robust functionality.
+    """
     # the email tab_char
     tab_char = '&emsp;'
     signature_dir_path = join((environ['USERPROFILE']),

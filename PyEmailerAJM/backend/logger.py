@@ -1,10 +1,8 @@
 from logging import Filter, DEBUG, ERROR, Handler, FileHandler, StreamHandler, Logger, WARNING
-from pathlib import Path
 from typing import Union
 
 from EasyLoggerAJM import EasyLogger, OutlookEmailHandler, StreamHandlerIgnoreExecInfo
 from PyEmailerAJM.msg import Msg
-from PyEmailerAJM import __project_name__, __project_root__
 
 
 class DupeDebugFilter(Filter):
@@ -31,8 +29,6 @@ class DupeDebugFilter(Filter):
 
 
 class PyEmailerLogger(EasyLogger):
-    ROOT_LOG_LOCATION_DEFAULT = Path(__project_root__, 'logs').resolve()
-
     def __call__(self):
         return self.logger
 
@@ -77,16 +73,6 @@ class PyEmailerLogger(EasyLogger):
 
     def _add_filter_to_stream_handler(self, handler: StreamHandler):
         self._add_dupe_debug_to_handler(handler)
-
-    @property
-    def project_name(self):
-        return super().project_name
-
-    @project_name.setter
-    def project_name(self, value):
-        if value is None:
-            value = __project_name__
-        super().__setattr__('_project_name', value)
 
     def create_stream_handler(self, log_level_to_stream=WARNING, **kwargs):
         stream_handler = kwargs.get('stream_handler_instance', StreamHandlerIgnoreExecInfo())

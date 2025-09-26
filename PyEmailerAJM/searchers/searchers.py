@@ -48,6 +48,8 @@ class BaseSearcher:
             if msg:
                 matched_messages.append(msg)
                 continue
+        self.logger.info(f"{len(matched_messages)} messages found!")#, print_msg=True)
+        self.logger.info("Search Complete, returning Msg's")
         return [m() for m in matched_messages]
 
     def _search_for_match(self, normalized_search_str: str, message: CDispatch, normalized_message_attr: str,
