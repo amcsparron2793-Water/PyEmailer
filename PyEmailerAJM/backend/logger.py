@@ -52,11 +52,12 @@ class PyEmailerLogger(EasyLogger):
         :return: None
         :rtype: None
         """
+        email_handler_class = kwargs.get('email_handler_class', OutlookEmailHandler)
         # noinspection PyTypeChecker
-        OutlookEmailHandler.VALID_EMAIL_MSG_TYPES = [Msg]
+        email_handler_class.VALID_EMAIL_MSG_TYPES = [Msg]
         try:
             # noinspection PyTypeChecker
-            email_handler = OutlookEmailHandler(email_msg=kwargs.get('email_msg', None),
+            email_handler = email_handler_class(email_msg=kwargs.get('email_msg', None),
                                                 project_name=self.project_name,
                                                 logger_dir_path=self.log_location,
                                                 recipient=kwargs.get('logger_admins', None))
