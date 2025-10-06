@@ -47,11 +47,7 @@ class EmailerInitializer:
                  auto_send: bool = False,
                  email_app_name: str = DEFAULT_EMAIL_APP_NAME,
                  namespace_name: str = DEFAULT_NAMESPACE_NAME, **kwargs):
-        if logger:
-            self.logger = logger
-        else:
-            self._elog = PyEmailerLogger(**kwargs)
-            self.logger = self._elog()
+        self.logger, self.logger_class = self.initialize_emailer_logger(logger, **kwargs)
         # print("Dummy logger in use!")
 
         self.email_app_name = email_app_name
@@ -62,6 +58,26 @@ class EmailerInitializer:
         self.display_window = display_window
         self.auto_send = auto_send
         self.send_emails = send_emails
+
+    def initialize_emailer_logger(self, logger: Logger = None, **kwargs):
+        if logger:
+            # If a real logger instance was provided (has .info), use it directly
+            if hasattr(logger, 'info') and hasattr(logger, 'warning'):
+                self.logger = logger
+                self.logger_class = logger.__class__
+            # If a callable/factory was provided, call it to get the logger instance
+            elif callable(logger):
+                self.logger_class = logger
+                self.logger = self.logger_class()
+            else:
+                # Fallback: treat as an instance but avoid calling missing methods here
+                self.logger = logger
+                # Derive a class reference best-effort
+                self.logger_class = getattr(logger, '__class__', type(logger))
+        else:
+            self.logger_class = PyEmailerLogger(**kwargs)
+            self.logger = self.logger_class()
+        return self.logger, self.logger_class
 
     def initialize_new_email(self):
         if hasattr(self, 'email_app') and self.email_app is not None:
@@ -430,22 +446,6 @@ class PyEmailer(EmailerInitializer, SubjectSearcher):
             print(results_string)
         self.logger.info(results_string)
         return failed_sends
-
-
-def __failed_sends_test(emailer):
-    failed_sends = emailer.get_failed_sends(recent_days_cap=1)
-    fs_results = ([(x.get('err_info').get('send_time'),
-                    x.get('err_info').get('failed_subject'))
-                   for x in failed_sends]
-                  if failed_sends else "no failed sends found")
-    print(fs_results)
-
-
-def __setup_and_send_test(emailer):
-    emailer.SetupEmail(subject="TEST: Your TEST agreement expires in 30 days or less!",
-                       recipient='amcsparron@albanyny.gov',
-                       text="testing to see anything works", bcc='amcsparron@albanyny.gov')
-    emailer.SendOrDisplay()
 
 
 if __name__ == "__main__":

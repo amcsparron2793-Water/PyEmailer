@@ -8,7 +8,16 @@ from PyEmailerAJM.backend.logger import PyEmailerLogger
 # FIXME: some of these tests are flakey
 class TestPyEmailerLogger(unittest.TestCase):
     def setUp(self) -> None:
+        # Prevent EasyLogger from emitting during initialization, which can interact with mocked handlers
+        from EasyLoggerAJM.easy_logger import EasyLogger
+        from unittest.mock import patch
+        self._post_handler_patcher = patch.object(EasyLogger, 'post_handler_setup', autospec=True)
+        self._post_handler_patcher.start()
         self.logger = PyEmailerLogger()
+
+    def tearDown(self) -> None:
+        # Stop our patcher to restore EasyLogger behavior for other tests
+        self._post_handler_patcher.stop()
 
     def test_call(self):
         self.assertIs(self.logger(), self.logger.logger)

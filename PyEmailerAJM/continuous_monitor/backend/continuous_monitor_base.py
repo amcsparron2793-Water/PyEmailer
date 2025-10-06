@@ -51,6 +51,12 @@ class ContinuousMonitorBase(PyEmailer, EmailState):
     ATTRS_TO_CHECK = []
 
     def __init__(self, display_window: bool, send_emails: bool, **kwargs):
+        # Normalize a callable logger factory into a concrete logger instance before super().__init__
+        logger_kw = kwargs.get('logger', None)
+        if logger_kw is not None and not hasattr(logger_kw, 'info') and callable(logger_kw):
+            # noinspection PyCallingNonCallable
+            kwargs['logger'] = logger_kw()
+
         super().__init__(display_window, send_emails, **kwargs)
 
         self.dev_mode = kwargs.get('dev_mode', False)
@@ -90,10 +96,16 @@ class ContinuousMonitorBase(PyEmailer, EmailState):
                 f"email handler not initialized because this is not a ContinuousMonitorAlertSend subclass"
             )
         else:
-            self._elog.setup_email_handler(email_msg=self.email,
-                                           logger_admins=self.__class__.ADMIN_EMAIL_LOGGER)
-            self.email = self.initialize_new_email()
-            self.logger.info("email handler initialized, initialized a new email object for use by monitor")
+            if hasattr(self.logger_class, 'setup_email_handler'):
+                self.logger_class.setup_email_handler(email_msg=self.email,
+                                                      logger_admins=self.__class__.ADMIN_EMAIL_LOGGER)
+
+                self.email = self.initialize_new_email()
+                self.logger.info("email handler initialized, initialized a new email object for use by monitor")
+            else:
+                self.logger.warning(f"email handler not initialized because "
+                                    f"logger_class {self.logger_class.__class__.__name__} "
+                                    f"does not have a setup_email_handler method")
 
     def _print_and_postprocess(self, alert_level):
         """
