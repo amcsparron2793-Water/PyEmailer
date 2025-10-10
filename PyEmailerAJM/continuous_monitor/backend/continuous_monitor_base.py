@@ -96,6 +96,8 @@ class ContinuousMonitorBase(PyEmailer, EmailState):
                 f"email handler not initialized because this is not a ContinuousMonitorAlertSend subclass"
             )
         else:
+            # FIXME: this causes an issue when used with ContinuousMonitorAlertSend...
+            #  when subclassed it seems to check the wrong logger class?
             if hasattr(self.logger_class, 'setup_email_handler'):
                 self.logger_class.setup_email_handler(email_msg=self.email,
                                                       logger_admins=self.__class__.ADMIN_EMAIL_LOGGER)
