@@ -49,8 +49,12 @@ class ContinuousMonitorBase(PyEmailer, EmailState):
     ADMIN_EMAIL_LOGGER = []
     ADMIN_EMAIL = []
     ATTRS_TO_CHECK = []
+    DEFAULT_ALERT_CHECK_STR = "Checking for emails with an alert..."
+    DEFAULT_NO_ALERTS_STR = "No emails with an alert detected in {read_folder} ({num_snoozed} snoozed)."
 
     def __init__(self, display_window: bool, send_emails: bool, **kwargs):
+        self._alert_check_str = None
+        self._no_alerts_str = None
         # Let EmailerInitializer handle logger factory vs instance normalization
         super().__init__(display_window, send_emails, **kwargs)
 
@@ -66,6 +70,36 @@ class ContinuousMonitorBase(PyEmailer, EmailState):
             if hasattr(cls, c) and isinstance(getattr(cls, c), list) and len(getattr(cls, c)) > 0:
                 continue
             raise ValueError(f"{c} must be a list of email addresses")
+
+    @property
+    def alert_check_string(self):
+        if not self._alert_check_str:
+            self._alert_check_str = self.__class__.DEFAULT_ALERT_CHECK_STR
+        return self._alert_check_str
+
+    @alert_check_string.setter
+    def alert_check_string(self, value):
+        self._alert_check_str = value
+
+    @property
+    def no_alerts_string(self):
+        return self._no_alerts_str
+
+    @no_alerts_string.setter
+    def no_alerts_string(self, value: dict):
+        if 'base_str' not in value:
+            base_str = self.__class__.DEFAULT_NO_ALERTS_STR
+        else:
+            base_str = value['base_str']
+        if 'format_items' not in value:
+            fmt_items = {'read_folder': self.read_folder,
+                         'num_snoozed': self.snooze_tracker.num_snoozed_msgs}
+        else:
+            fmt_items = value['format_items']
+        if fmt_items:
+            self._no_alerts_str = base_str.format(**fmt_items)
+        else:
+            self._no_alerts_str = base_str
 
     def initialize_helper_classes(self, **kwargs):
         colorizer = ContinuousColorizer(logger=self.logger)

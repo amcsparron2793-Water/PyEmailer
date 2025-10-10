@@ -63,6 +63,13 @@ class SnoozeTracking:
                 self._json_loaded = {}
         return self._json_loaded
 
+    @property
+    def num_snoozed_msgs(self):
+        if self.json_loaded and hasattr(self.json_loaded, '__len__'):
+            return len(self.json_loaded)
+        else:
+            return 0
+
     def init_logger(self, log_level=INFO, **kwargs):
         """
         :param log_level: The logging level to be set for the logger if no logger is provided. Default is `INFO`.

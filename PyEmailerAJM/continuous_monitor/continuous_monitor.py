@@ -47,7 +47,7 @@ class ContinuousMonitor(ContinuousMonitorBase):
         :rtype: None
 
         """
-        self.logger.info("\nChecking for emails with an alert...", print_msg=True)
+        self.logger.info(self.alert_check_string, print_msg=True)
         self.refresh_messages()
         if self.has_overdue:
             self._print_and_postprocess(AlertTypes.OVERDUE)
@@ -59,7 +59,9 @@ class ContinuousMonitor(ContinuousMonitorBase):
             self._print_and_postprocess(AlertTypes.CRITICAL_WARNING)
 
         else:
-            self.logger.info(f"No emails with an alert detected in {self.read_folder}", print_msg=True)
+            if not self.no_alerts_string:
+                self.no_alerts_string = {}
+            self.logger.info(self.no_alerts_string, print_msg=True)
 
         self.snooze_tracker.snooze_msgs(self.all_messages)
 
