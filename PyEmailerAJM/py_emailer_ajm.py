@@ -185,6 +185,30 @@ class PyEmailer(EmailerInitializer, SubjectSearcher):
     def email_signature(self):
         return self._email_signature
 
+    def _read_email_sig_file(self, sig_full_path: str):
+        """
+        Reads the content of an email signature file from the specified path. The method
+        attempts to decode the file using multiple encodings to ensure compatibility
+        with common formats, particularly those used by Outlook for .txt signature files.
+
+        :param sig_full_path: Path to the email signature file to be read.
+        :type sig_full_path: str
+        :return: Content of the email signature if successfully read; otherwise, None.
+        :rtype: Optional[str]
+        """
+        # Try common encodings for Outlook signature .txt files
+        try:
+            with open(sig_full_path, 'r', encoding='utf-16') as f:
+                return f.read().strip()
+        except UnicodeError:
+            # Fallback to UTF-8 with BOM or plain UTF-8
+            try:
+                with open(sig_full_path, 'r', encoding='utf-8-sig') as f:
+                    return f.read().strip()
+            except Exception as e:
+                self.logger.warning(e)
+                return None
+
     @email_signature.getter
     def email_signature(self):
         if self.email_sig_filename:
@@ -199,8 +223,7 @@ class PyEmailer(EmailerInitializer, SubjectSearcher):
                     self._email_signature = None
 
             if isfile(signature_full_path):
-                with open(signature_full_path, 'r', encoding='utf-16') as f:
-                    self._email_signature = f.read().strip()
+                self._email_signature = self._read_email_sig_file(signature_full_path)
             else:
                 try:
                     raise FileNotFoundError(f"{signature_full_path} does not exist.")

@@ -25,14 +25,11 @@ class ContinuousMonitorAlertSend(ContinuousMonitor):
             self.logger.warning(f"IS DEV MODE - NOT checking for class attributes "
                                 f"({', '.join(self.__class__.ATTRS_TO_CHECK)}) for ContinuousMonitorAlertSend")
 
-    def __init_subclass__(cls, **kwargs):
-        cls.check_for_class_attrs(cls.ATTRS_TO_CHECK)
-
     def _set_args_for_endless_watch(self):
         self.send_emails = True
         self.auto_send = True
         self.display_window = False
-        self.logger.debug("send_emails, auto_send, and display_window set to True for endless_watch()")
+        self.logger.debug("Configured endless_watch: send_emails=True, auto_send=True, display_window=False")
 
     def SetupEmail(self, recipient: Optional[str] = None, subject: str = DEFAULT_SUBJECT,
                    text: str = None, attachments: list = None, **kwargs):

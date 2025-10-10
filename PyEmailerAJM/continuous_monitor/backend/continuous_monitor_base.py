@@ -51,12 +51,7 @@ class ContinuousMonitorBase(PyEmailer, EmailState):
     ATTRS_TO_CHECK = []
 
     def __init__(self, display_window: bool, send_emails: bool, **kwargs):
-        # Normalize a callable logger factory into a concrete logger instance before super().__init__
-        logger_kw = kwargs.get('logger', None)
-        if logger_kw is not None and not hasattr(logger_kw, 'info') and callable(logger_kw):
-            # noinspection PyCallingNonCallable
-            kwargs['logger'] = logger_kw()
-
+        # Let EmailerInitializer handle logger factory vs instance normalization
         super().__init__(display_window, send_emails, **kwargs)
 
         self.dev_mode = kwargs.get('dev_mode', False)
@@ -74,8 +69,10 @@ class ContinuousMonitorBase(PyEmailer, EmailState):
 
     def initialize_helper_classes(self, **kwargs):
         colorizer = ContinuousColorizer(logger=self.logger)
-        snooze_tracker = SnoozeTracking(Path(kwargs.get('file_name', './snooze_tracker.json')),
-                                        logger=kwargs.get('logger', self.logger))
+        snooze_tracker = SnoozeTracking(
+            Path(kwargs.get('file_name', './snooze_tracker.json')),
+            logger=self.logger,
+        )
         sleep_timer = TheSandman(sleep_time_seconds=kwargs.get('sleep_time_seconds', None), logger=self.logger)
         return colorizer, snooze_tracker, sleep_timer
 
@@ -90,24 +87,27 @@ class ContinuousMonitorBase(PyEmailer, EmailState):
     def email_handler_init(self):
         if self.dev_mode:
             self.logger.warning("email handler disabled for dev mode")
-        elif (not type(self).__name__ == "ContinuousMonitorAlertSend"
-              and not is_instance_of_dynamic(self, "__main__.ContinuousMonitorAlertSend")):
-            self.logger.warning(
-                f"email handler not initialized because this is not a ContinuousMonitorAlertSend subclass"
-            )
-        else:
-            # FIXME: this causes an issue when used with ContinuousMonitorAlertSend...
-            #  when subclassed it seems to check the wrong logger class?
-            if hasattr(self.logger_class, 'setup_email_handler'):
-                self.logger_class.setup_email_handler(email_msg=self.email,
-                                                      logger_admins=self.__class__.ADMIN_EMAIL_LOGGER)
-
+            return
+        # Prefer a capability check on the configured logger factory/class with optional feature flag
+        has_setup = hasattr(self.logger_class, 'setup_email_handler')
+        enabled = getattr(self.logger_class, 'with_email_handler', True)
+        if has_setup and enabled:
+            try:
+                self.logger_class.setup_email_handler(
+                    email_msg=self.email,
+                    logger_admins=self.__class__.ADMIN_EMAIL_LOGGER,
+                )
+                # Create a fresh email after wiring the handler so the handler owns the original
                 self.email = self.initialize_new_email()
-                self.logger.info("email handler initialized, initialized a new email object for use by monitor")
-            else:
-                self.logger.warning(f"email handler not initialized because "
-                                    f"logger_class {self.logger_class.__class__.__name__} "
-                                    f"does not have a setup_email_handler method")
+                self.logger.info("email handler initialized; created new email object for monitor")
+            except Exception:
+                # Ensure we log the full traceback but don't crash initialization unexpectedly
+                self.logger.error("Failed to initialize email handler", exc_info=True)
+        else:
+            self.logger.warning(
+                f"email handler not initialized; logger_class {getattr(self.logger_class, '__class__', type(self.logger_class)).__name__} "
+                f"has no setup_email_handler",
+            )
 
     def _print_and_postprocess(self, alert_level):
         """
