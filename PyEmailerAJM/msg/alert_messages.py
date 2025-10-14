@@ -102,6 +102,11 @@ class _AlertMsgBase(Msg):
         return False
         # return False
 
+    def _remove_unread_from_snoozed(self):
+        self.logger.debug("msg is not unread, removing from snooze list if present")
+        self.snooze_checker.json_loaded.pop(self.subject, None)
+        self.snooze_checker.save_json()
+
     @property
     def msg_alert(self):
         """
@@ -110,6 +115,10 @@ class _AlertMsgBase(Msg):
         :return: True if the email item is unread and not recent, otherwise False.
         :rtype: bool
         """
+        if not self.email_item.Unread:
+            self._remove_unread_from_snoozed()
+            return False
+
         still_snoozed = self._still_snoozed_check()
         if not still_snoozed:
             if self.email_item.Unread and not self._msg_is_recent() and self.msg_is_alert(self):
