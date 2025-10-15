@@ -114,6 +114,87 @@ class SubjectSearcher(BaseSearcher):
                                                partial_match_ok):
             return message
 
+    # TODO: START OF FASTPATH SEARCH
+    def _build_sql_filter(self, search_subject, partial_match_ok, **kwargs) -> str:
+        # Build an @SQL filter that matches the desired subject, accounting for prefixes
+        # Note: [Subject] alias is recognized by Outlook's @SQL provider
+        include_fw = kwargs.get('include_fw', True)
+        include_re = kwargs.get('include_re', True)
+
+        escaped = search_subject.replace("'", "''")
+        terms: List[str] = []
+        if partial_match_ok:
+            like = f"%{escaped}%"
+            terms.append(f"[Subject] LIKE '{like}'")
+            if include_fw:
+                terms.append(f"[Subject] LIKE 'FW: {like}'")
+                terms.append(f"[Subject] LIKE 'FWD: {like}'")
+            if include_re:
+                terms.append(f"[Subject] LIKE 'RE: {like}'")
+        else:
+            terms.append(f"[Subject] = '{escaped}'")
+            if include_fw:
+                terms.append(f"[Subject] = 'FW: {escaped}'")
+                terms.append(f"[Subject] = 'FWD: {escaped}'")
+            if include_re:
+                terms.append(f"[Subject] = 'RE: {escaped}'")
+
+        sql_where = ' OR '.join(terms) if terms else f"[Subject] = '{escaped}'"
+        sql = f"@SQL={sql_where}"
+        self.logger.debug(f"@SQL filter: {sql}")
+        return sql
+
+    # noinspection PyBroadException
+    def _attempt_item_sort(self, folder: CDispatch):
+        items = folder.Items
+        # Sorting can make Find/Restrict more reliable on some stores; optional
+        try:
+            items.Sort('[ReceivedTime]', True)
+            self.logger.debug("Items sorted by ReceivedTime")
+        except Exception:
+            pass
+        try:
+            items.IncludeRecurrences = True
+            self.logger.debug("Items include recurrences")
+        except Exception:
+            pass
+        return items
+
+    def _get_fastpath_search_folder(self):
+        # Ensure we have a folder to search
+        folder = getattr(self, 'read_folder', None)
+        if folder is None and hasattr(self, '_GetReadFolder'):
+            # Default to INBOX/_GetReadFolder behavior of PyEmailer
+            folder = self._GetReadFolder()
+            setattr(self, 'read_folder', folder)
+        return folder
+
+    # noinspection PyBroadException
+    def _fastpath_search(self, items, sql: str, **kwargs):
+        try:
+            restricted = items.Restrict(sql)
+            # Convert to list of CDispatch quickly; no Python-side filtering
+            results: List[CDispatch] = []
+            # Using Find/FindNext over restricted to avoid full enumeration when large
+            try:
+                itm = restricted.Find(None)
+                while itm is not None:
+                    results.append(itm)
+                    itm = restricted.FindNext()
+
+            except Exception:
+                # Fall back to iterating the restricted collection
+                for itm in restricted:
+                    results.append(itm)
+            self.logger.info(f"{len(results)} messages found via fast search!")
+            return results
+
+        except Exception as e:
+            # If Restrict fails (e.g., older store), fall back
+            self.logger.debug(f"Restrict failed, falling back to Python scan: {e}")
+            return e
+
+    # TODO: END OF FASTPATH SEARCH
     def find_messages_by_subject(self, search_subject: str, msg_attr: str = 'subject',
                                  partial_match_ok: bool = False, **kwargs) -> List[CDispatch]:
         """Returns a list of messages matching the given subject, ignoring prefixes based on flags.
@@ -131,78 +212,27 @@ class SubjectSearcher(BaseSearcher):
                                                                        partial_match_ok=partial_match_ok)
         self.logger.info(self.searching_string, print_msg=True)
 
+        # TODO: start of fastpath search
         # Try fast path using Items.Restrict if we have a read_folder (PyEmailer sets this)
         try:
-            # Ensure we have a folder to search
-            folder = getattr(self, 'read_folder', None)
-            if folder is None and hasattr(self, '_GetReadFolder'):
-                # Default to INBOX/_GetReadFolder behavior of PyEmailer
-                folder = self._GetReadFolder()
-                setattr(self, 'read_folder', folder)
+            folder = self._get_fastpath_search_folder()
 
             if folder is not None and hasattr(folder, 'Items'):
-                items = folder.Items
-                # Sorting can make Find/Restrict more reliable on some stores; optional
-                try:
-                    items.Sort('[ReceivedTime]', True)
-                except Exception:
-                    pass
-                try:
-                    items.IncludeRecurrences = True
-                except Exception:
-                    pass
+                items = self._attempt_item_sort(folder)
+                sql = self._build_sql_filter(search_subject=search_subject,
+                                             partial_match_ok=partial_match_ok, **kwargs)
+                results = self._fastpath_search(items, sql, **kwargs)
+                if isinstance(results, Exception):
+                    raise results from None
+                return results
 
-                include_fw = kwargs.get('include_fw', True)
-                include_re = kwargs.get('include_re', True)
-
-                # Build an @SQL filter that matches the desired subject, accounting for prefixes
-                # Note: [Subject] alias is recognized by Outlook's @SQL provider
-                escaped = search_subject.replace("'", "''")
-                terms: List[str] = []
-                if partial_match_ok:
-                    like = f"%{escaped}%"
-                    terms.append(f"[Subject] LIKE '{like}'")
-                    if include_fw:
-                        terms.append(f"[Subject] LIKE 'FW: {like}'")
-                        terms.append(f"[Subject] LIKE 'FWD: {like}'")
-                    if include_re:
-                        terms.append(f"[Subject] LIKE 'RE: {like}'")
-                else:
-                    terms.append(f"[Subject] = '{escaped}'")
-                    if include_fw:
-                        terms.append(f"[Subject] = 'FW: {escaped}'")
-                        terms.append(f"[Subject] = 'FWD: {escaped}'")
-                    if include_re:
-                        terms.append(f"[Subject] = 'RE: {escaped}'")
-
-                sql_where = ' OR '.join(terms) if terms else f"[Subject] = '{escaped}'"
-                sql = f"@SQL={sql_where}"
-
-                try:
-                    restricted = items.Restrict(sql)
-                    # Convert to list of CDispatch quickly; no Python-side filtering
-                    results: List[CDispatch] = []
-                    # Using Find/FindNext over restricted to avoid full enumeration when large
-                    try:
-                        itm = restricted.Find(None)
-                        while itm is not None:
-                            results.append(itm)
-                            itm = restricted.FindNext()
-                    except Exception:
-                        # Fall back to iterating the restricted collection
-                        for itm in restricted:
-                            results.append(itm)
-                    self.logger.info(f"{len(results)} messages found via fast search!")
-                    return results
-                except Exception as e:
-                    # If Restrict fails (e.g., older store), fall back
-                    self.logger.debug(f"Restrict failed, falling back to Python scan: {e}")
         except Exception as e:
             # Any unexpected failure -> fall back
             self.logger.debug(f"Fast subject search preparation failed: {e}")
 
         # Fallback: Python-side scan through all messages
         return self.fetch_matched_messages(normalized_subject, normalized_msg_attr, **kwargs)
+    # TODO: end of fastpath search
 
     def _matches_prefix(self, message_subject: str, prefixes: list, search_subject: str,
                         partial_match_ok: bool = False) -> bool:
