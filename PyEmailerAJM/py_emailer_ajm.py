@@ -265,7 +265,7 @@ class PyEmailer(EmailerInitializer, SubjectSearcher):
                 else:
                     print("Please respond with 'y' or 'n'.")
 
-    def display_tracker_check(self) -> bool:
+    def display_tracker_check(self) -> bool | None:
         if self.display_window:
             c = self._display_tracking_warning_confirm()
             if c:
@@ -276,6 +276,7 @@ class PyEmailer(EmailerInitializer, SubjectSearcher):
                 except DisplayManualQuit as e:
                     self.logger.error(e, exc_info=True)
                     raise e
+        return None
 
     def _get_default_folder_for_email_dir(self, email_dir_index: int = None, **kwargs):
         # 6 = inbox
