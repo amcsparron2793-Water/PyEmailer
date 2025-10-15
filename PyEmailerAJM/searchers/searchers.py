@@ -80,47 +80,12 @@ class BaseSearcher:
 
 
 class FastPathSearcher(BaseSearcher):
+    # noinspection PyAbstractClass
     @abstractmethod
     def GetMessages(self):
         ...
 
-
-class SubjectSearcher(BaseSearcher):
-    # Constants for prefixes
-    FW_PREFIXES = ['FW:', 'FWD:']
-    RE_PREFIX = 'RE:'
-    SEARCHING_STRING = ("searching for messages with subject \'{search_subject}\' "
-                        "partial match ok: {partial_match_ok}").capitalize()
-
-    @abstractmethod
-    def GetMessages(self):
-        ...
-
-    def _search_for_match(self, search_str: str, message: CDispatch,
-                          attribute: str, partial_match_ok: bool = False,
-                          **kwargs):
-        include_fw = kwargs.get('include_fw', True)
-        include_re = kwargs.get('include_re', True)
-
-        (normalized_message_attr,
-         normalized_search_str) = self.get_normalized_attr_and_candidate(message, attribute, search_str)
-
-        if super()._search_for_match(normalized_search_str, message,
-                                     normalized_message_attr, partial_match_ok):
-            return message
-
-        if include_fw and self._matches_prefix(normalized_search_str,
-                                               self.__class__.FW_PREFIXES,
-                                               normalized_message_attr,
-                                               partial_match_ok):
-            return message
-        if include_re and self._matches_prefix(normalized_search_str,
-                                               [self.__class__.RE_PREFIX],
-                                               normalized_message_attr,
-                                               partial_match_ok):
-            return message
-
-    # TODO: START OF FASTPATH SEARCH
+    # FIXME: this class does not return whats expected as search results for py_emailer_ajm test - issue with SQL filter?
     def _build_sql_filter(self, search_subject, partial_match_ok, **kwargs) -> str:
         # Build an @SQL filter that matches the desired subject, accounting for prefixes
         # Note: [Subject] alias is recognized by Outlook's @SQL provider
@@ -148,6 +113,7 @@ class SubjectSearcher(BaseSearcher):
         sql_where = ' OR '.join(terms) if terms else f"[Subject] = '{escaped}'"
         sql = f"@SQL={sql_where}"
         self.logger.debug(f"@SQL filter: {sql}")
+        print(f"@SQL filter: {sql}")
         return sql
 
     # noinspection PyBroadException
@@ -219,7 +185,42 @@ class SubjectSearcher(BaseSearcher):
             # Any unexpected failure -> fall back
             self.logger.debug(f"Fast subject search preparation failed: {e}")
 
-    # TODO: END OF FASTPATH SEARCH
+
+class SubjectSearcher(FastPathSearcher):
+    # Constants for prefixes
+    FW_PREFIXES = ['FW:', 'FWD:']
+    RE_PREFIX = 'RE:'
+    SEARCHING_STRING = ("searching for messages with subject \'{search_subject}\' "
+                        "partial match ok: {partial_match_ok}").capitalize()
+
+    @abstractmethod
+    def GetMessages(self):
+        ...
+
+    def _search_for_match(self, search_str: str, message: CDispatch,
+                          attribute: str, partial_match_ok: bool = False,
+                          **kwargs):
+        include_fw = kwargs.get('include_fw', True)
+        include_re = kwargs.get('include_re', True)
+
+        (normalized_message_attr,
+         normalized_search_str) = self.get_normalized_attr_and_candidate(message, attribute, search_str)
+
+        if super()._search_for_match(normalized_search_str, message,
+                                     normalized_message_attr, partial_match_ok):
+            return message
+
+        if include_fw and self._matches_prefix(normalized_search_str,
+                                               self.__class__.FW_PREFIXES,
+                                               normalized_message_attr,
+                                               partial_match_ok):
+            return message
+        if include_re and self._matches_prefix(normalized_search_str,
+                                               [self.__class__.RE_PREFIX],
+                                               normalized_message_attr,
+                                               partial_match_ok):
+            return message
+
     def find_messages_by_subject(self, search_subject: str, msg_attr: str = 'subject',
                                  partial_match_ok: bool = False, **kwargs) -> List[CDispatch]:
         """Returns a list of messages matching the given subject, ignoring prefixes based on flags.
@@ -236,10 +237,11 @@ class SubjectSearcher(BaseSearcher):
         self.searching_string = self.__class__.SEARCHING_STRING.format(search_subject=search_subject,
                                                                        partial_match_ok=partial_match_ok)
         self.logger.info(self.searching_string, print_msg=True)
-        try:
+
+        if hasattr(self, 'run_fastpath_search'):
             return self.run_fastpath_search(search_subject, partial_match_ok, **kwargs)
-        except Exception:
-            pass
+        else:
+            self.logger.error("No fast path search available.")
 
         # Fallback: Python-side scan through all messages
         return self.fetch_matched_messages(normalized_subject, normalized_msg_attr, **kwargs)
