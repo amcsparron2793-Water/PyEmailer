@@ -79,6 +79,12 @@ class BaseSearcher:
         return search_str in candidate_str
 
 
+class FastPathSearcher(BaseSearcher):
+    @abstractmethod
+    def GetMessages(self):
+        ...
+
+
 class SubjectSearcher(BaseSearcher):
     # Constants for prefixes
     FW_PREFIXES = ['FW:', 'FWD:']
@@ -194,6 +200,25 @@ class SubjectSearcher(BaseSearcher):
             self.logger.debug(f"Restrict failed, falling back to Python scan: {e}")
             return e
 
+    def run_fastpath_search(self, search_subject: str, partial_match_ok: bool = False, **kwargs):
+        # Try fast path using Items.Restrict if we have a read_folder (PyEmailer sets this)
+        try:
+            folder = self._get_fastpath_search_folder()
+
+            if folder is not None and hasattr(folder, 'Items'):
+                items = self._attempt_item_sort(folder)
+                sql = self._build_sql_filter(search_subject=search_subject,
+                                             partial_match_ok=partial_match_ok, **kwargs)
+                results = self._fastpath_search(items, sql, **kwargs)
+                if isinstance(results, Exception):
+                    raise results from None
+                return results
+            raise AttributeError("No read_folder available for fast path search.")
+
+        except Exception as e:
+            # Any unexpected failure -> fall back
+            self.logger.debug(f"Fast subject search preparation failed: {e}")
+
     # TODO: END OF FASTPATH SEARCH
     def find_messages_by_subject(self, search_subject: str, msg_attr: str = 'subject',
                                  partial_match_ok: bool = False, **kwargs) -> List[CDispatch]:
@@ -211,28 +236,13 @@ class SubjectSearcher(BaseSearcher):
         self.searching_string = self.__class__.SEARCHING_STRING.format(search_subject=search_subject,
                                                                        partial_match_ok=partial_match_ok)
         self.logger.info(self.searching_string, print_msg=True)
-
-        # TODO: start of fastpath search
-        # Try fast path using Items.Restrict if we have a read_folder (PyEmailer sets this)
         try:
-            folder = self._get_fastpath_search_folder()
-
-            if folder is not None and hasattr(folder, 'Items'):
-                items = self._attempt_item_sort(folder)
-                sql = self._build_sql_filter(search_subject=search_subject,
-                                             partial_match_ok=partial_match_ok, **kwargs)
-                results = self._fastpath_search(items, sql, **kwargs)
-                if isinstance(results, Exception):
-                    raise results from None
-                return results
-
-        except Exception as e:
-            # Any unexpected failure -> fall back
-            self.logger.debug(f"Fast subject search preparation failed: {e}")
+            return self.run_fastpath_search(search_subject, partial_match_ok, **kwargs)
+        except Exception:
+            pass
 
         # Fallback: Python-side scan through all messages
         return self.fetch_matched_messages(normalized_subject, normalized_msg_attr, **kwargs)
-    # TODO: end of fastpath search
 
     def _matches_prefix(self, message_subject: str, prefixes: list, search_subject: str,
                         partial_match_ok: bool = False) -> bool:
