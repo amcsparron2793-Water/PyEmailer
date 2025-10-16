@@ -76,16 +76,33 @@ class BaseSearcher:
     def _is_partial_match(candidate_str: str, search_str: str) -> bool:
         if candidate_str == '' or search_str == '':
             return False
-        return search_str in candidate_str
+        return (search_str in candidate_str) or (candidate_str in search_str)
 
 
-class FastPathSearcher(BaseSearcher):
+class FastPathSearcher:
+    FW_PREFIXES: List[str] = []
+    RE_PREFIX: List[str] = []
+
+    def __init_subclass__(cls, **kwargs):
+        mandatory_attributes = ['FW_PREFIXES', 'RE_PREFIX']
+        if any([x for x in mandatory_attributes if not hasattr(cls, x)]):
+            raise AttributeError(f"All subclasses of FastPathSearcher must define the following attributes: "
+                                 f"{', '.join(mandatory_attributes)}")
     # noinspection PyAbstractClass
     @abstractmethod
     def GetMessages(self):
         ...
 
-    # FIXME: this class does not return whats expected as search results for py_emailer_ajm test - issue with SQL filter?
+    def _build_terms(self, operator, escaped, include_fw, include_re, **kwargs):
+        terms = [f"[Subject] {operator} '{escaped}'"]
+        if include_fw:
+            for x in self.__class__.FW_PREFIXES:
+                terms.append(f"[Subject] {operator} '{x} {escaped}'")
+        if include_re:
+            for x in self.__class__.RE_PREFIX:
+                terms.append(f"[Subject] {operator} '{x} {escaped}'")
+        return terms
+
     def _build_sql_filter(self, search_subject, partial_match_ok, **kwargs) -> str:
         # Build an @SQL filter that matches the desired subject, accounting for prefixes
         # Note: [Subject] alias is recognized by Outlook's @SQL provider
@@ -93,27 +110,23 @@ class FastPathSearcher(BaseSearcher):
         include_re = kwargs.get('include_re', True)
 
         escaped = search_subject.replace("'", "''")
-        terms: List[str] = []
         if partial_match_ok:
-            like = f"%{escaped}%"
-            terms.append(f"[Subject] LIKE '{like}'")
-            if include_fw:
-                terms.append(f"[Subject] LIKE 'FW: {like}'")
-                terms.append(f"[Subject] LIKE 'FWD: {like}'")
-            if include_re:
-                terms.append(f"[Subject] LIKE 'RE: {like}'")
-        else:
-            terms.append(f"[Subject] = '{escaped}'")
-            if include_fw:
-                terms.append(f"[Subject] = 'FW: {escaped}'")
-                terms.append(f"[Subject] = 'FWD: {escaped}'")
-            if include_re:
-                terms.append(f"[Subject] = 'RE: {escaped}'")
+            self.logger.warning("Partial match is not supported with fasttrack at this time, setting to false. "
+                                "\nRun with no_fastpath_search set to True for partial match searches. ")
+            partial_match_ok = False
 
-        sql_where = ' OR '.join(terms) if terms else f"[Subject] = '{escaped}'"
-        sql = f"@SQL={sql_where}"
-        self.logger.debug(f"@SQL filter: {sql}")
-        print(f"@SQL filter: {sql}")
+        if partial_match_ok:
+            operator = 'LIKE'
+            like = f"%{escaped}%"
+            terms = self._build_terms(operator, like, include_fw, include_re, **kwargs)
+
+        else:
+            operator = '='
+            terms = self._build_terms(operator, escaped, include_fw, include_re, **kwargs)
+
+        sql_where = ' OR '.join(f'({t})' for t in terms) if terms else f"[Subject] = '{escaped}'"
+        sql = sql_where
+        self.logger.debug(f"sql filter: {sql}")
         return sql
 
     # noinspection PyBroadException
@@ -149,7 +162,7 @@ class FastPathSearcher(BaseSearcher):
             results: List[CDispatch] = []
             # Using Find/FindNext over restricted to avoid full enumeration when large
             try:
-                itm = restricted.Find(None)
+                itm = restricted.Find()
                 while itm is not None:
                     results.append(itm)
                     itm = restricted.FindNext()
@@ -163,7 +176,7 @@ class FastPathSearcher(BaseSearcher):
 
         except Exception as e:
             # If Restrict fails (e.g., older store), fall back
-            self.logger.debug(f"Restrict failed, falling back to Python scan: {e}")
+            self.logger.error(f"Restrict failed, falling back to Python scan: {e}", print_msg=True)
             return e
 
     def run_fastpath_search(self, search_subject: str, partial_match_ok: bool = False, **kwargs):
@@ -178,15 +191,16 @@ class FastPathSearcher(BaseSearcher):
                 results = self._fastpath_search(items, sql, **kwargs)
                 if isinstance(results, Exception):
                     raise results from None
-                return results
+                return results or []
             raise AttributeError("No read_folder available for fast path search.")
 
         except Exception as e:
             # Any unexpected failure -> fall back
             self.logger.debug(f"Fast subject search preparation failed: {e}")
+            return e
 
 
-class SubjectSearcher(FastPathSearcher):
+class SubjectSearcher(BaseSearcher, FastPathSearcher):
     # Constants for prefixes
     FW_PREFIXES = ['FW:', 'FWD:']
     RE_PREFIX = 'RE:'
@@ -238,13 +252,20 @@ class SubjectSearcher(FastPathSearcher):
                                                                        partial_match_ok=partial_match_ok)
         self.logger.info(self.searching_string, print_msg=True)
 
-        if hasattr(self, 'run_fastpath_search'):
-            return self.run_fastpath_search(search_subject, partial_match_ok, **kwargs)
+        if hasattr(self, 'run_fastpath_search') and not kwargs.get('no_fastpath_search', False):
+            try:
+                res = self.run_fastpath_search(search_subject, partial_match_ok, **kwargs)
+                if isinstance(res, Exception):
+                    raise res from None
+                return res
+            except Exception as e:
+                pass
         else:
-            self.logger.error("No fast path search available.")
+            self.logger.warning("No fast path search available.")
 
         # Fallback: Python-side scan through all messages
-        return self.fetch_matched_messages(normalized_subject, normalized_msg_attr, **kwargs)
+        self.logger.warning("Falling back to Python-side scan...")
+        return self.fetch_matched_messages(normalized_subject, normalized_msg_attr, partial_match_ok, **kwargs)
 
     def _matches_prefix(self, message_subject: str, prefixes: list, search_subject: str,
                         partial_match_ok: bool = False) -> bool:
@@ -264,7 +285,7 @@ class SubjectSearcher(FastPathSearcher):
 # - Available aliases can vary by store/provider. If an alias is not recognized, use a DASL name instead
 #   (e.g., "http://schemas.microsoft.com/mapi/proptag/0x0037001F" for Subject) or a URN schema such as
 #   "urn:schemas:httpmail:subject".
-# - Wrap aliases in [brackets] and prefix your filter with "@SQL=" when calling Items.Restrict.
+# - Wrap aliases in [brackets]  when calling Items.Restrict.
 # - For dates, use ISO-like strings or properly constructed COM dates.
 OUTLOOK_ATSQL_ALIASES: tuple[str, ...] = (
     # Mail/general
