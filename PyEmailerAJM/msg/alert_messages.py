@@ -1,4 +1,5 @@
 from datetime import datetime
+from pathlib import Path
 
 import win32com.client as win32
 # pylint: disable=import-error
@@ -175,17 +176,48 @@ class _AlertMsgBase(Msg):
         """
         days_limit = days_limit if days_limit else self.alert_time_days
         return super()._msg_is_recent(recent_days_cap=days_limit)
+    # TODO: refactor these into a new subclass???
+    @classmethod
+    def _check_string_for_keys(cls, candidate_string: str):
+        if any((x for x in getattr(cls, 'ALERT_SUBJECT_KEYWORDS')
+                if x.lower() in candidate_string.lower())):
+            return True
+        return False
+
+    @classmethod
+    def _check_subject_for_keys(cls, msg: Msg):
+        return cls._check_string_for_keys(msg.subject)
+
+    @classmethod
+    def _check_body_for_keys(cls, msg: Msg):
+        return cls._check_string_for_keys(msg.body)
+
+    @classmethod
+    def _check_attachment_name_for_keys(cls, msg:Msg):
+        for a in msg.attachments:
+            try:
+                if cls._check_string_for_keys(Path(a).resolve().stem):
+                    return True
+            except (ValueError, Exception):
+                continue
+        return False
 
     @classmethod
     def msg_is_alert(cls, msg: Msg):
         """
-        Checks if the message subject contains any predefined alert keywords.
+        Determines if a given message is an alert by checking if specific keywords are
+        present in the message body. Extends the behavior of a superclass method to
+        apply additional keyword-based checks specific to the class.
 
-        :return: True if the subject contains any alert keywords, False otherwise
+        :param msg: The message object to be evaluated.
+        :type msg: Msg
+        :return: True if the message is identified as an alert, False otherwise.
         :rtype: bool
         """
-        if any((x for x in getattr(cls, 'ALERT_SUBJECT_KEYWORDS')
-                if x.lower() in msg.subject.lower())):
+        alert_check_methods = [cls._check_subject_for_keys(msg),
+                               cls._check_body_for_keys(msg),
+                               cls._check_attachment_name_for_keys(msg)]
+        if any(alert_check_methods):
             return True
         return False
 
