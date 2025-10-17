@@ -3,8 +3,20 @@ from typing import List
 
 from win32com.client import CDispatch
 
+from PyEmailerAJM.backend import PyEmailerLogger
+
 
 class BaseSearcher:
+    SEARCHING_STRING = "Searching for Messages..."  #partial match ok: {partial_match_ok}"
+
+    def __init__(self, logger, **kwargs):
+        self._searching_string = None
+        if logger:
+            self.logger = logger
+        else:
+            self._elog = PyEmailerLogger(**kwargs)
+            self.logger = self._elog()
+
     @abstractmethod
     def GetMessages(self):
         ...
@@ -13,6 +25,14 @@ class BaseSearcher:
     def get_attribute_for_search(cls, message: CDispatch, attribute: str):
         if hasattr(message, attribute):
             return getattr(message, attribute)
+
+    @property
+    def searching_string(self):
+        return self._searching_string
+
+    @searching_string.setter
+    def searching_string(self, value: str):
+        self._searching_string = value
 
     def get_normalized_attr_and_candidate(self, message: CDispatch, attribute: str, search_str: str):
         normalized_message_attr = self._normalize_string(BaseSearcher.get_attribute_for_search(message, attribute))
@@ -28,6 +48,8 @@ class BaseSearcher:
             if msg:
                 matched_messages.append(msg)
                 continue
+        self.logger.info(f"{len(matched_messages)} messages found!")#, print_msg=True)
+        self.logger.info("Search Complete, returning Msg's")
         return [m() for m in matched_messages]
 
     def _search_for_match(self, normalized_search_str: str, message: CDispatch, normalized_message_attr: str,
@@ -61,6 +83,8 @@ class SubjectSearcher(BaseSearcher):
     # Constants for prefixes
     FW_PREFIXES = ['FW:', 'FWD:']
     RE_PREFIX = 'RE:'
+    SEARCHING_STRING = ("searching for messages with subject \'{search_subject}\' "
+                        "partial match ok: {partial_match_ok}").capitalize()
 
     @abstractmethod
     def GetMessages(self):
@@ -98,7 +122,10 @@ class SubjectSearcher(BaseSearcher):
         normalized_subject = self._normalize_string(search_subject)
         normalized_msg_attr = self._normalize_string(msg_attr)
 
-        print(f"searching for messages with subject \'{search_subject}\' partial match ok: ", partial_match_ok)
+        self.searching_string = self.__class__.SEARCHING_STRING.format(search_subject=search_subject,
+                                                                       partial_match_ok=partial_match_ok)
+        self.logger.info(self.searching_string, print_msg=True)
+
         return self.fetch_matched_messages(normalized_subject, normalized_msg_attr, **kwargs)
 
     def _matches_prefix(self, message_subject: str, prefixes: list, search_subject: str,
