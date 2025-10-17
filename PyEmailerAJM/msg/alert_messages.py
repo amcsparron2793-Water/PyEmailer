@@ -1,5 +1,6 @@
 from datetime import datetime
 from pathlib import Path
+import inspect
 
 import win32com.client as win32
 # pylint: disable=import-error
@@ -8,7 +9,58 @@ from PyEmailerAJM.backend import TheSandman
 from PyEmailerAJM.backend import AlertTypes
 
 
-class _AlertMsgBase(Msg):
+class _AlertCheckMethods:
+    """
+    Provides utility methods for checking specific keywords in various parts of a message,
+    such as the subject, body, or attachment names.
+
+    This class contains several class methods designed to verify whether a candidate string,
+    message subject, body, or attachment names include any predefined alert keywords.
+
+    """
+
+    DEFAULT_ALERT_CHECK_METHOD_NAMES = ['_check_subject_for_keys',
+                                        '_check_body_for_keys',
+                                        '_check_attachment_name_for_keys']
+
+    @classmethod
+    def _validate_alert_check_methods(cls, alert_check_methods: list = None):
+        if not alert_check_methods:
+            alert_check_methods = cls.DEFAULT_ALERT_CHECK_METHOD_NAMES
+        if all([callable(getattr(cls, x)) for x in alert_check_methods]):
+            alert_check_methods = [getattr(cls, x) for x in alert_check_methods]
+        else:
+            raise AttributeError('alert_check_methods must be a list of callable objects '
+                                 'that accept a single Msg argument', name=None)
+        return alert_check_methods
+
+    @classmethod
+    def _check_string_for_keys(cls, candidate_string: str):
+        if any((x for x in getattr(cls, 'ALERT_SUBJECT_KEYWORDS')
+                if x.lower() in candidate_string.lower())):
+            return True
+        return False
+
+    @classmethod
+    def _check_subject_for_keys(cls, msg: Msg):
+        return cls._check_string_for_keys(msg.subject)
+
+    @classmethod
+    def _check_body_for_keys(cls, msg: Msg):
+        return cls._check_string_for_keys(msg.body)
+
+    @classmethod
+    def _check_attachment_name_for_keys(cls, msg: Msg):
+        for a in msg.attachments:
+            try:
+                if cls._check_string_for_keys(Path(a).resolve().stem):
+                    return True
+            except (ValueError, Exception):
+                continue
+        return False
+
+
+class _AlertMsgBase(Msg, _AlertCheckMethods):
     """
     A base class for alert message handling that inherits from ``Msg``.
     This class is designed to evaluate whether a message meets specific
@@ -75,7 +127,6 @@ class _AlertMsgBase(Msg):
 
     @classmethod
     def AlertMsgBaseCheckClsAttrs(cls):
-        # FIXME: this should go with each of the alert_msgs??
         if issubclass(cls, _AlertMsgBase):
             cls.check_for_class_attrs(cls.ATTRS_TO_CHECK)
 
@@ -90,6 +141,8 @@ class _AlertMsgBase(Msg):
         snooze_checker_entry = self.snooze_checker.read_entry(self.subject)
 
         if not snooze_checker_entry and self.msg_snoozed_time:
+            # FIXME: is this the cause of the "\snooze_tracking.py", line 102, in write_entry
+            #  TypeError: fromisoformat: argument must be str
             snooze_expired = TheSandman.is_snooze_expired(self.msg_snoozed_time)
         elif not snooze_checker_entry and not self.msg_snoozed_time:
             snooze_expired = True
@@ -176,47 +229,25 @@ class _AlertMsgBase(Msg):
         """
         days_limit = days_limit if days_limit else self.alert_time_days
         return super()._msg_is_recent(recent_days_cap=days_limit)
-    # TODO: refactor these into a new subclass???
-    @classmethod
-    def _check_string_for_keys(cls, candidate_string: str):
-        if any((x for x in getattr(cls, 'ALERT_SUBJECT_KEYWORDS')
-                if x.lower() in candidate_string.lower())):
-            return True
-        return False
 
     @classmethod
-    def _check_subject_for_keys(cls, msg: Msg):
-        return cls._check_string_for_keys(msg.subject)
-
-    @classmethod
-    def _check_body_for_keys(cls, msg: Msg):
-        return cls._check_string_for_keys(msg.body)
-
-    @classmethod
-    def _check_attachment_name_for_keys(cls, msg:Msg):
-        for a in msg.attachments:
-            try:
-                if cls._check_string_for_keys(Path(a).resolve().stem):
-                    return True
-            except (ValueError, Exception):
-                continue
-        return False
-
-    @classmethod
-    def msg_is_alert(cls, msg: Msg):
+    def msg_is_alert(cls, msg: Msg, **kwargs):
         """
-        Determines if a given message is an alert by checking if specific keywords are
-        present in the message body. Extends the behavior of a superclass method to
-        apply additional keyword-based checks specific to the class.
+        Checks whether a given message qualifies as an alert based on specific
+        validation methods.
 
-        :param msg: The message object to be evaluated.
+        This method iterates over a set of alert validation methods and applies
+        them to the provided message. If any of the methods validate the message
+        as an alert, the method returns True. Otherwise, it returns False.
+
+        :param msg: The message object to determine if it is an alert.
         :type msg: Msg
-        :return: True if the message is identified as an alert, False otherwise.
+        :param kwargs: Additional parameters passed to alert validation methods.
+        :type kwargs: dict
+        :return: True if the message is an alert, False otherwise.
         :rtype: bool
         """
-        alert_check_methods = [cls._check_subject_for_keys(msg),
-                               cls._check_body_for_keys(msg),
-                               cls._check_attachment_name_for_keys(msg)]
+        alert_check_methods = [x(msg) for x in cls._validate_alert_check_methods(**kwargs)]
         if any(alert_check_methods):
             return True
         return False
