@@ -65,8 +65,8 @@ class TestContinuousMonitorBase(unittest.TestCase):
 
         # Should debug that email handler not initialized due to lack of capability
         logger = monitor.logger
-        debug_calls = [c.args[0] for c in logger.debug.call_args_list]
-        self.assertTrue(any('has no setup_email_handler' in msg for msg in debug_calls))
+        warning_calls = [c.args[0] for c in logger.warning.call_args_list]
+        self.assertTrue(any('has no setup_email_handler' in msg for msg in warning_calls))
 
     def test_print_and_postprocess_calls_postprocess_when_not_dev(self):
         monitor = DummyMonitor(display_window=False, send_emails=False, dev_mode=False, logger=self.LoggerFactoryNoEmail)
