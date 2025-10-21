@@ -9,7 +9,7 @@ from PyEmailerAJM.backend import PyEmailerLogger
 class BaseSearcher:
     SEARCHING_STRING = "Searching for Messages..."  #partial match ok: {partial_match_ok}"
 
-    def __init__(self, logger, **kwargs):
+    def __init__(self, logger=None, **kwargs):
         self._searching_string = None
         if logger:
             self.logger = logger
@@ -108,11 +108,13 @@ class SubjectSearcher(BaseSearcher):
                                                normalized_message_attr,
                                                partial_match_ok):
             return message
+
         if include_re and self._matches_prefix(normalized_search_str,
                                                [self.__class__.RE_PREFIX],
                                                normalized_message_attr,
                                                partial_match_ok):
             return message
+        return None
 
     def find_messages_by_subject(self, search_subject: str, msg_attr: str = 'subject',
                                  partial_match_ok: bool = False, **kwargs) -> List[CDispatch]:
