@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from typing import List
+from typing import List, Dict, Type
 
 from win32com.client import CDispatch
 
@@ -7,7 +7,18 @@ from PyEmailerAJM.backend import PyEmailerLogger
 
 
 class BaseSearcher:
-    SEARCHING_STRING = "Searching for Messages..."  #partial match ok: {partial_match_ok}"
+    # Global registry of searchers keyed by SEARCH_TYPE
+    _REGISTRY: Dict[str, Type['BaseSearcher']] = {}
+
+    SEARCH_TYPE: str | None = None  # subclasses set this to a unique key (e.g. 'subject')
+    SEARCHING_STRING = "Searching for Messages..."  # partial match ok: {partial_match_ok}"
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        # Auto-register any subclass that defines a SEARCH_TYPE
+        if getattr(cls, 'SEARCH_TYPE', None):
+            key = cls.SEARCH_TYPE.lower()
+            BaseSearcher._REGISTRY[key] = cls
 
     def __init__(self, logger=None, **kwargs):
         self._searching_string = None
@@ -85,6 +96,7 @@ class SubjectSearcher(BaseSearcher):
     RE_PREFIX = 'RE:'
     SEARCHING_STRING = ("searching for messages with subject \'{search_subject}\' "
                         "partial match ok: {partial_match_ok}").capitalize()
+    SEARCH_TYPE = 'subject'
 
     @abstractmethod
     def GetMessages(self):
