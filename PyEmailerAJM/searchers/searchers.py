@@ -151,3 +151,22 @@ class SubjectSearcher(BaseSearcher):
                 return (self._is_exact_match(stripped_subject, search_subject) if not partial_match_ok
                         else self._is_partial_match(stripped_subject, search_subject))
         return False
+
+
+class AttributeSearcher(BaseSearcher):
+    """ Generic searcher for a specific outlook item attribute. """
+
+    def __init__(self, attribute: str, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._attribute = attribute  # body, SenderName etc
+
+    @abstractmethod
+    def GetMessages(self):
+        ...
+
+    def find_messages_by_attribute(self, search_str: str, partial_match_ok: bool = False, **kwargs) -> List[CDispatch]:
+        """Returns a list of messages matching the given attribute."""
+        normalized_search_str = self._normalize_string(search_str)
+        self.searching_string = f"Searching for Messages with {self._attribute} containing \'{search_str}\'"
+        self.logger.info(self.searching_string, print_msg=True)
+        return self.fetch_matched_messages(normalized_search_str, self._attribute, partial_match_ok, **kwargs)
