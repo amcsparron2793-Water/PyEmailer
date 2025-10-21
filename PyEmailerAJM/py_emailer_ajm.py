@@ -15,7 +15,7 @@ import win32com.client as win32
 # This is installed as part of pywin32
 # noinspection PyUnresolvedReferences
 from pythoncom import com_error
-from logging import Logger, basicConfig, StreamHandler, FileHandler, getLogger
+from logging import Logger, StreamHandler
 from email_validator import validate_email, EmailNotValidError
 import questionary
 # this is usually thrown when questionary is used in the dev/Non Win32 environment
@@ -26,7 +26,7 @@ from PyEmailerAJM import (EmailerNotSetupError, DisplayManualQuit,
                           deprecated,
                           Msg, FailedMsg)
 from PyEmailerAJM.backend import BasicEmailFolderChoices, PyEmailerLogger
-from PyEmailerAJM.searchers import SubjectSearcher
+from PyEmailerAJM.searchers import SearcherFactory
 
 
 class EmailerInitializer:
@@ -104,7 +104,7 @@ class EmailerInitializer:
         return self.email_app, self.namespace
 
 
-class PyEmailer(EmailerInitializer, SubjectSearcher):
+class PyEmailer(EmailerInitializer):
     """
     The `PyEmailer` class is designed for managing and handling email-related operations.
     It initializes email client settings, manages email folders, handles email messages,
@@ -324,6 +324,7 @@ class PyEmailer(EmailerInitializer, SubjectSearcher):
             except TypeError as e:
                 self.logger.error(e, exc_info=True)
                 raise e
+        # noinspection PyUnresolvedReferences
         return [Msg(m, logger=self.logger) for m in self.read_folder.Items]
 
     @deprecated("use Msg classes body attribute instead")
@@ -339,6 +340,7 @@ class PyEmailer(EmailerInitializer, SubjectSearcher):
                 self.logger.error(e, exc_info=True)
                 raise e
 
+    # FIXME: this should be rewritten to use the searcher factory etc
     @deprecated("use find_messages_by_subject instead")
     def FindMsgBySubject(self, subject: str, forwarded_message_match: bool = True,
                          reply_msg_match: bool = True, partial_match_ok: bool = False):
@@ -476,11 +478,14 @@ if __name__ == "__main__":
     module_name = __file__.split('\\')[-1].split('.py')[0]
 
     em = PyEmailer(display_window=False, send_emails=True, auto_send=False, use_default_logger=False)
-    m = em.find_messages_by_subject('Andrew', partial_match_ok=True)
+    # TODO: integrate factory into PyEmailer directory
+    factory = SearcherFactory()
+    ss = factory.get_searcher('subject', get_messages=em.GetMessages)
+    m = ss.find_messages_by_subject('Andrew', partial_match_ok=True)
     print([type(x) for x in m])
     # __setup_and_send_test(em)
     # __failed_sends_test(em)
-    x = em.find_messages_by_subject("GIS Request", partial_match_ok=True)
+    x = ss.find_messages_by_subject("GIS Request", partial_match_ok=True)
     # [x.name for x in m.ItemProperties]
     print([(m.__class__, m.sender, m.sender_email_type, m.subject)
            for m in [Msg(y) for y in x]])  # for m in x])

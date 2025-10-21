@@ -17,12 +17,12 @@ def is_instance_of_dynamic(obj: object, base_class_path: str) -> bool:
 from PyEmailerAJM.backend import deprecated
 from PyEmailerAJM.backend.errs import EmailerNotSetupError, DisplayManualQuit
 from PyEmailerAJM.msg import Msg, FailedMsg
-from PyEmailerAJM.searchers import BaseSearcher, SubjectSearcher
+from PyEmailerAJM.searchers import SearcherFactory
 from PyEmailerAJM.py_emailer_ajm import PyEmailer, EmailerInitializer
 from PyEmailerAJM.continuous_monitor.continuous_monitor import ContinuousMonitor
 
 __all__ = ['EmailerNotSetupError', 'DisplayManualQuit', 'deprecated',
            'Msg', 'FailedMsg', 'PyEmailer', 'EmailerInitializer',
-           'BaseSearcher', 'SubjectSearcher', 'ContinuousMonitor',
+           'SearcherFactory', 'ContinuousMonitor',
            'is_instance_of_dynamic']
 

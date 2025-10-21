@@ -1,5 +1,6 @@
 from abc import abstractmethod
-from typing import List, Dict, Type
+from collections.abc import Callable, Iterable
+from typing import List, Dict, Type, Optional
 
 from win32com.client import CDispatch
 
@@ -13,6 +14,9 @@ class BaseSearcher:
     SEARCH_TYPE: str | None = None  # subclasses set this to a unique key (e.g. 'subject')
     SEARCHING_STRING = "Searching for Messages..."  # partial match ok: {partial_match_ok}"
 
+    # NEW: class-level default that can be set once for all instances
+    _DEFAULT_GET_MESSAGES: Optional[Callable[..., Iterable]] = None
+
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
         # Auto-register any subclass that defines a SEARCH_TYPE
@@ -20,7 +24,7 @@ class BaseSearcher:
             key = cls.SEARCH_TYPE.lower()
             BaseSearcher._REGISTRY[key] = cls
 
-    def __init__(self, logger=None, **kwargs):
+    def __init__(self, logger=None,*, get_messages:Callable[..., Iterable] | None = None, **kwargs):
         self._searching_string = None
         if logger:
             self.logger = logger
@@ -28,14 +32,33 @@ class BaseSearcher:
             self._elog = PyEmailerLogger(**kwargs)
             self.logger = self._elog()
 
-    @abstractmethod
-    def GetMessages(self):
-        ...
+        # Instance provider; if not provided, fall back to class default
+        self._get_messages = get_messages or self.__class__._DEFAULT_GET_MESSAGES
+        if self._get_messages is None:
+            # Not fatal immediately; we raise only if someone calls GetMessages without a provider
+            self.logger.debug("No get_messages provider set yet; call set_default_get_messages or pass get_messages.")
+
+    @classmethod
+    def set_default_get_messages(cls, provider: Callable[..., Iterable]) -> None:
+        """Set a global default provider for all searchers (current and future instances).
+        Typically provider = py_emailer.GetMessages.
+        """
+        cls._default_get_messages = provider
+
+    # Now GET RID of abstract here and provide a concrete default implementation
+    def GetMessages(self, *args, **kwargs):
+        if not self._get_messages:
+            raise NotImplementedError(
+                "No GetMessages provider configured. Pass get_messages=... to the constructor "
+                "or call BaseSearcher.set_default_get_messages(py_emailer.GetMessages)."
+            )
+        return self._get_messages(*args, **kwargs)
 
     @classmethod
     def get_attribute_for_search(cls, message: CDispatch, attribute: str):
         if hasattr(message, attribute):
             return getattr(message, attribute)
+        return None
 
     @property
     def searching_string(self):
@@ -90,6 +113,21 @@ class BaseSearcher:
         return search_str in candidate_str
 
 
+class AttributeSearcher(BaseSearcher):
+    """ Generic searcher for a specific outlook item attribute. """
+
+    def __init__(self, attribute: str, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._attribute = attribute  # body, SenderName etc
+
+    def find_messages_by_attribute(self, search_str: str, partial_match_ok: bool = False, **kwargs) -> List[CDispatch]:
+        """Returns a list of messages matching the given attribute."""
+        normalized_search_str = self._normalize_string(search_str)
+        self.searching_string = f"Searching for Messages with {self._attribute} containing \'{search_str}\'"
+        self.logger.info(self.searching_string, print_msg=True)
+        return self.fetch_matched_messages(normalized_search_str, self._attribute, partial_match_ok, **kwargs)
+
+
 class SubjectSearcher(BaseSearcher):
     # Constants for prefixes
     FW_PREFIXES = ['FW:', 'FWD:']
@@ -97,10 +135,6 @@ class SubjectSearcher(BaseSearcher):
     SEARCHING_STRING = ("searching for messages with subject \'{search_subject}\' "
                         "partial match ok: {partial_match_ok}").capitalize()
     SEARCH_TYPE = 'subject'
-
-    @abstractmethod
-    def GetMessages(self):
-        ...
 
     def _search_for_match(self, search_str: str, message: CDispatch,
                           attribute: str, partial_match_ok: bool = False,
@@ -151,22 +185,3 @@ class SubjectSearcher(BaseSearcher):
                 return (self._is_exact_match(stripped_subject, search_subject) if not partial_match_ok
                         else self._is_partial_match(stripped_subject, search_subject))
         return False
-
-
-class AttributeSearcher(BaseSearcher):
-    """ Generic searcher for a specific outlook item attribute. """
-
-    def __init__(self, attribute: str, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._attribute = attribute  # body, SenderName etc
-
-    @abstractmethod
-    def GetMessages(self):
-        ...
-
-    def find_messages_by_attribute(self, search_str: str, partial_match_ok: bool = False, **kwargs) -> List[CDispatch]:
-        """Returns a list of messages matching the given attribute."""
-        normalized_search_str = self._normalize_string(search_str)
-        self.searching_string = f"Searching for Messages with {self._attribute} containing \'{search_str}\'"
-        self.logger.info(self.searching_string, print_msg=True)
-        return self.fetch_matched_messages(normalized_search_str, self._attribute, partial_match_ok, **kwargs)
