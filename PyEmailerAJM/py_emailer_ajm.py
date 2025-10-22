@@ -154,7 +154,9 @@ class PyEmailer(EmailerInitializer):
                  auto_send: bool = False, email_app_name: str = EmailerInitializer.DEFAULT_EMAIL_APP_NAME,
                  namespace_name: str = EmailerInitializer.DEFAULT_NAMESPACE_NAME, **kwargs):
 
-        super().__init__(display_window, send_emails, logger, auto_send, email_app_name, namespace_name, **kwargs)
+        super().__init__(display_window, send_emails, logger,
+                         auto_send, email_app_name, namespace_name,
+                         **kwargs)
         self._setup_was_run = False
         self._current_user_email = None
 
@@ -163,6 +165,9 @@ class PyEmailer(EmailerInitializer):
         self._email_signature = None
         self._send_success = False
         self.email_sig_filename = email_sig_filename
+        self.searcher = SearcherFactory().get_searcher(search_type=kwargs.pop('search_type', 'subject'),
+                                                       get_messages=kwargs.pop('get_messages', self.GetMessages),
+                                                       **kwargs)
 
     @property
     def current_user_email(self):
@@ -305,7 +310,7 @@ class PyEmailer(EmailerInitializer):
             self.logger.debug(f">>> email_dir_index not specified, defaulting to '{email_dir_index}' folder. <<<")
         if not isinstance(email_dir_index, int):
             self.logger.debug(f">>> email_dir_index is not an int, "
-                               f"defaulting to {email_dir_index} folder and {subfolder_name} subfolder. <<<")
+                              f"defaulting to {email_dir_index} folder and {subfolder_name} subfolder. <<<")
             return self.namespace.Folders[email_dir_index].Folders[subfolder_name]
 
         else:
@@ -344,9 +349,9 @@ class PyEmailer(EmailerInitializer):
     @deprecated("use find_messages_by_subject instead")
     def FindMsgBySubject(self, subject: str, forwarded_message_match: bool = True,
                          reply_msg_match: bool = True, partial_match_ok: bool = False):
-        return self.find_messages_by_subject(subject, include_fw=forwarded_message_match,
-                                             include_re=reply_msg_match,
-                                             partial_match_ok=partial_match_ok)
+        return self.searcher.find_messages_by_subject(subject, include_fw=forwarded_message_match,
+                                                      include_re=reply_msg_match,
+                                                      partial_match_ok=partial_match_ok)
 
     def SaveAllEmailAttachments(self, msg, save_dir_path):
         attachments = msg.Attachments
@@ -468,7 +473,7 @@ class PyEmailer(EmailerInitializer):
         results_string = self.__class__.FAILED_SEND_LOGGER_STRING.format(num=len(failed_sends),
                                                                          recent_days_cap=recent_days_cap)
         if (not self.logger.hasHandlers() or not any([isinstance(x, StreamHandler)
-                                                       for x in self.logger.handlers])):
+                                                      for x in self.logger.handlers])):
             print(results_string)
         self.logger.info(results_string)
         return failed_sends
@@ -479,13 +484,16 @@ if __name__ == "__main__":
 
     em = PyEmailer(display_window=False, send_emails=True, auto_send=False, use_default_logger=False)
     # TODO: integrate factory into PyEmailer directory
-    factory = SearcherFactory()
-    ss = factory.get_searcher('subject', get_messages=em.GetMessages)
-    m = ss.find_messages_by_subject('Andrew', partial_match_ok=True)
-    print([type(x) for x in m])
+    # factory = SearcherFactory()
+    # ss = factory.get_searcher('subject', get_messages=em.GetMessages)
+    # m = em.searcher.find_messages_by_attribute('Andrew', partial_match_ok=True)
+    # print(type(em.searcher))
+    # print([type(x) for x in m])
     # __setup_and_send_test(em)
     # __failed_sends_test(em)
-    x = ss.find_messages_by_subject("GIS Request", partial_match_ok=True)
+    x = em.searcher.find_messages_by_attribute("Email Alert")#"GIS Request", partial_match_ok=True)
+    print(type(em.searcher))
+
     # [x.name for x in m.ItemProperties]
     print([(m.__class__, m.sender, m.sender_email_type, m.subject)
            for m in [Msg(y) for y in x]])  # for m in x])
