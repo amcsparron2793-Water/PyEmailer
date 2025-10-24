@@ -2,7 +2,12 @@ from abc import abstractmethod
 from collections.abc import Callable, Iterable
 from typing import List, Dict, Type, Optional
 
-from win32com.client import CDispatch
+# Provide a safe fallback for CDispatch when pywin32 is unavailable (e.g., in test environments)
+try:  # pragma: no cover - trivial import guard
+    from win32com.client import CDispatch  # type: ignore
+except Exception:  # pragma: no cover - define a minimal stand-in type
+    class CDispatch:  # minimal placeholder for typing/annotations only
+        pass
 
 from PyEmailerAJM.backend import PyEmailerLogger
 
@@ -48,7 +53,8 @@ class BaseSearcher:
         """Set a global default provider for all searchers (current and future instances).
         Typically provider = py_emailer.GetMessages.
         """
-        cls._default_get_messages = provider
+        # Ensure we set the correctly cased class variable used by __init__
+        cls._DEFAULT_GET_MESSAGES = provider
 
     def GetMessages(self, *args, **kwargs):
         if not self._get_messages:
@@ -100,9 +106,10 @@ class BaseSearcher:
 
     def _search_for_match(self, normalized_search_str: str, message: CDispatch, normalized_message_attr: str,
                           partial_match_ok: bool = False, **kwargs):
-        if (self._is_exact_match(normalized_search_str, normalized_message_attr) or
-                (partial_match_ok and self._is_partial_match(normalized_search_str,
-                                                             normalized_message_attr))):
+        # Correct argument order: candidate(message attr) first, then search string
+        if (self._is_exact_match(normalized_message_attr, normalized_search_str) or
+                (partial_match_ok and self._is_partial_match(normalized_message_attr,
+                                                             normalized_search_str))):
             return message
         return None
 
@@ -164,15 +171,16 @@ class SubjectSearcher(BaseSearcher):
                                      normalized_message_attr, partial_match_ok):
             return message
 
-        if include_fw and self._matches_prefix(normalized_search_str,
+        # Check for FW/FWD and RE prefixes on the message subject
+        if include_fw and self._matches_prefix(normalized_message_attr,
                                                self.__class__.FW_PREFIXES,
-                                               normalized_message_attr,
+                                               normalized_search_str,
                                                partial_match_ok):
             return message
 
-        if include_re and self._matches_prefix(normalized_search_str,
+        if include_re and self._matches_prefix(normalized_message_attr,
                                                [self.__class__.RE_PREFIX],
-                                               normalized_message_attr,
+                                               normalized_search_str,
                                                partial_match_ok):
             return message
         return None
