@@ -167,7 +167,9 @@ class PyEmailer(EmailerInitializer):
         self.email_sig_filename = email_sig_filename
         self.searcher = SearcherFactory().get_searcher(search_type=kwargs.pop('search_type', 'subject'),
                                                        get_messages=kwargs.pop('get_messages', self.GetMessages),
+                                                       logger=self.logger,
                                                        **kwargs)
+        self.logger.info(f"searcher {self.searcher.__class__.__name__} initialized.")
 
     @property
     def current_user_email(self):
@@ -482,8 +484,8 @@ class PyEmailer(EmailerInitializer):
 if __name__ == "__main__":
     module_name = __file__.split('\\')[-1].split('.py')[0]
 
-    em = PyEmailer(display_window=False, send_emails=True, auto_send=False, use_default_logger=False)
-    # TODO: integrate factory into PyEmailer directory
+    em = PyEmailer(display_window=False, send_emails=True,
+                   auto_send=False, use_default_logger=False)
     # factory = SearcherFactory()
     # ss = factory.get_searcher('subject', get_messages=em.GetMessages)
     # m = em.searcher.find_messages_by_attribute('Andrew', partial_match_ok=True)
@@ -491,8 +493,9 @@ if __name__ == "__main__":
     # print([type(x) for x in m])
     # __setup_and_send_test(em)
     # __failed_sends_test(em)
-    x = em.searcher.find_messages_by_attribute("Email Alert")#"GIS Request", partial_match_ok=True)
-    print(type(em.searcher))
+    # TODO: Test all attributes
+    x = em.searcher.find_messages_by_attribute("GIS Request", partial_match_ok=True)
+    print(em.searcher.__class__.__name__)
 
     # [x.name for x in m.ItemProperties]
     print([(m.__class__, m.sender, m.sender_email_type, m.subject)
