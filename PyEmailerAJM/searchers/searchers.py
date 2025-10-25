@@ -129,9 +129,131 @@ class BaseSearcher:
     def _is_partial_match(candidate_str: str, search_str: str) -> bool:
         if candidate_str == '' or search_str == '':
             return False
-        return search_str in candidate_str
+        return (search_str in candidate_str) or (candidate_str in search_str)
 
 
+class FastPathSearcher:
+    FW_PREFIXES: List[str] = []
+    RE_PREFIX: List[str] = []
+
+    def __init_subclass__(cls, **kwargs):
+        mandatory_attributes = ['FW_PREFIXES', 'RE_PREFIX']
+        if any([x for x in mandatory_attributes if not hasattr(cls, x)]):
+            raise AttributeError(f"All subclasses of FastPathSearcher must define the following attributes: "
+                                 f"{', '.join(mandatory_attributes)}")
+    # noinspection PyAbstractClass
+    @abstractmethod
+    def GetMessages(self):
+        ...
+
+    def _build_terms(self, operator, escaped, include_fw, include_re, **kwargs):
+        terms = [f"[Subject] {operator} '{escaped}'"]
+        if include_fw:
+            for x in self.__class__.FW_PREFIXES:
+                terms.append(f"[Subject] {operator} '{x} {escaped}'")
+        if include_re:
+            for x in self.__class__.RE_PREFIX:
+                terms.append(f"[Subject] {operator} '{x} {escaped}'")
+        return terms
+
+    def _build_sql_filter(self, search_subject, partial_match_ok, **kwargs) -> str:
+        # Build an @SQL filter that matches the desired subject, accounting for prefixes
+        # Note: [Subject] alias is recognized by Outlook's @SQL provider
+        include_fw = kwargs.get('include_fw', True)
+        include_re = kwargs.get('include_re', True)
+
+        escaped = search_subject.replace("'", "''")
+        if partial_match_ok:
+            self.logger.warning("Partial match is not supported with fasttrack at this time, setting to false. "
+                                "\nRun with no_fastpath_search set to True for partial match searches. ")
+            partial_match_ok = False
+
+        if partial_match_ok:
+            operator = 'LIKE'
+            like = f"%{escaped}%"
+            terms = self._build_terms(operator, like, include_fw, include_re, **kwargs)
+
+        else:
+            operator = '='
+            terms = self._build_terms(operator, escaped, include_fw, include_re, **kwargs)
+
+        sql_where = ' OR '.join(f'({t})' for t in terms) if terms else f"[Subject] = '{escaped}'"
+        sql = sql_where
+        self.logger.debug(f"sql filter: {sql}")
+        return sql
+
+    # noinspection PyBroadException
+    def _attempt_item_sort(self, folder: CDispatch):
+        items = folder.Items
+        # Sorting can make Find/Restrict more reliable on some stores; optional
+        try:
+            items.Sort('[ReceivedTime]', True)
+            self.logger.debug("Items sorted by ReceivedTime")
+        except Exception:
+            pass
+        try:
+            items.IncludeRecurrences = True
+            self.logger.debug("Items include recurrences")
+        except Exception:
+            pass
+        return items
+
+    def _get_fastpath_search_folder(self):
+        # Ensure we have a folder to search
+        folder = getattr(self, 'read_folder', None)
+        if folder is None and hasattr(self, '_GetReadFolder'):
+            # Default to INBOX/_GetReadFolder behavior of PyEmailer
+            folder = self._GetReadFolder()
+            setattr(self, 'read_folder', folder)
+        return folder
+
+    # noinspection PyBroadException
+    def _fastpath_search(self, items, sql: str, **kwargs):
+        try:
+            restricted = items.Restrict(sql)
+            # Convert to list of CDispatch quickly; no Python-side filtering
+            results: List[CDispatch] = []
+            # Using Find/FindNext over restricted to avoid full enumeration when large
+            try:
+                itm = restricted.Find()
+                while itm is not None:
+                    results.append(itm)
+                    itm = restricted.FindNext()
+
+            except Exception:
+                # Fall back to iterating the restricted collection
+                for itm in restricted:
+                    results.append(itm)
+            self.logger.info(f"{len(results)} messages found via fast search!")
+            return results
+
+        except Exception as e:
+            # If Restrict fails (e.g., older store), fall back
+            self.logger.error(f"Restrict failed, falling back to Python scan: {e}", print_msg=True)
+            return e
+
+    def run_fastpath_search(self, search_subject: str, partial_match_ok: bool = False, **kwargs):
+        # Try fast path using Items.Restrict if we have a read_folder (PyEmailer sets this)
+        try:
+            folder = self._get_fastpath_search_folder()
+
+            if folder is not None and hasattr(folder, 'Items'):
+                items = self._attempt_item_sort(folder)
+                sql = self._build_sql_filter(search_subject=search_subject,
+                                             partial_match_ok=partial_match_ok, **kwargs)
+                results = self._fastpath_search(items, sql, **kwargs)
+                if isinstance(results, Exception):
+                    raise results from None
+                return results or []
+            raise AttributeError("No read_folder available for fast path search.")
+
+        except Exception as e:
+            # Any unexpected failure -> fall back
+            self.logger.debug(f"Fast subject search preparation failed: {e}")
+            return e
+
+
+class SubjectSearcher(BaseSearcher, FastPathSearcher):
 class AttributeSearcher(BaseSearcher):
     """ Generic searcher for a specific outlook item attribute. """
 
@@ -191,18 +313,35 @@ class SubjectSearcher(BaseSearcher):
 
     def find_messages_by_subject(self, search_subject: str, msg_attr: str = 'subject',
                                  partial_match_ok: bool = False, **kwargs) -> List[CDispatch]:
-        """Returns a list of messages matching the given subject, ignoring prefixes based on flags."""
+        """Returns a list of messages matching the given subject, ignoring prefixes based on flags.
 
-        # # Normalize the search subject and msg attr
-        # normalized_subject = self._normalize_to_string(search_subject)
-        # normalized_msg_attr = self._normalize_to_string(msg_attr)
-        # print(normalized_subject, normalized_msg_attr)
+        Optimization: If an Outlook read folder is available on `self` (PyEmailer provides `read_folder`),
+        use Outlook's Items.Restrict/@SQL to filter by subject server-side instead of iterating Python-side.
+        Falls back to the existing in-Python scan if Restrict is unavailable or throws a COM error.
+        """
+
+        # Normalize search subject and attr label
+        normalized_subject = self._normalize_string(search_subject)
+        normalized_msg_attr = self._normalize_string(msg_attr)
 
         self.searching_string = self.__class__.SEARCHING_STRING.format(search_subject=search_subject,
                                                                        partial_match_ok=partial_match_ok)
         self.logger.info(self.searching_string, print_msg=True)
 
-        return self.fetch_matched_messages(search_subject, msg_attr, **kwargs)
+        if hasattr(self, 'run_fastpath_search') and not kwargs.get('no_fastpath_search', False):
+            try:
+                res = self.run_fastpath_search(search_subject, partial_match_ok, **kwargs)
+                if isinstance(res, Exception):
+                    raise res from None
+                return res
+            except Exception as e:
+                pass
+        else:
+            self.logger.warning("No fast path search available.")
+
+        # Fallback: Python-side scan through all messages
+        self.logger.warning("Falling back to Python-side scan...")
+        return self.fetch_matched_messages(normalized_subject, normalized_msg_attr, partial_match_ok, **kwargs)
 
     def _matches_prefix(self, message_subject: str, prefixes: list, search_subject: str,
                         partial_match_ok: bool = False) -> bool:
@@ -213,3 +352,45 @@ class SubjectSearcher(BaseSearcher):
                 return (self._is_exact_match(stripped_subject, search_subject) if not partial_match_ok
                         else self._is_partial_match(stripped_subject, search_subject))
         return False
+
+
+# Commonly recognized Outlook @SQL aliases
+# These are the field aliases you can use inside square brackets in @SQL filters, e.g.:
+#   @SQL=[Subject] LIKE '%report%' AND [ReceivedTime] >= '2025-10-01 00:00'
+# Notes:
+# - Available aliases can vary by store/provider. If an alias is not recognized, use a DASL name instead
+#   (e.g., "http://schemas.microsoft.com/mapi/proptag/0x0037001F" for Subject) or a URN schema such as
+#   "urn:schemas:httpmail:subject".
+# - Wrap aliases in [brackets]  when calling Items.Restrict.
+# - For dates, use ISO-like strings or properly constructed COM dates.
+OUTLOOK_ATSQL_ALIASES: tuple[str, ...] = (
+    # Mail/general
+    'Subject', 'Body', 'Categories', 'MessageClass', 'Size', 'Importance', 'Sensitivity', 'UnRead', 'HasAttachment',
+    'EntryID', 'ConversationTopic',
+    # Sender/recipients
+    'SenderName', 'SenderEmailAddress', 'SenderEmailType', 'To', 'CC', 'BCC',
+    # Time fields
+    'ReceivedTime', 'SentOn', 'CreationTime', 'LastModificationTime',
+    # Calendar/task-related (usable when applicable)
+    'Start', 'End', 'Duration', 'Location', 'Organizer', 'MeetingStatus', 'FlagStatus', 'FlagRequest', 'FlagDueBy',
+)
+
+
+def get_outlook_sql_aliases() -> Iterable[str]:
+    """Return a tuple of commonly recognized Outlook @SQL field aliases.
+
+    Outlook's @SQL provider recognizes a set of field aliases that can be referenced with [Alias]
+    inside an @SQL=... restriction string (Items.Restrict). The exact set may vary depending on the
+    store/provider and Outlook version. If a field is not recognized in your environment, switch to
+    using a DASL property name (e.g., an http://schemas.microsoft.com/mapi/proptag/... URL) or a
+    URN such as urn:schemas:httpmail:... for headers.
+
+    Examples:
+    - @SQL=[Subject] = 'Weekly Report'
+    - @SQL=[UnRead] = True AND [HasAttachment] = True
+    - @SQL=[ReceivedTime] >= '2025-10-01 00:00' AND [SenderEmailAddress] LIKE '%@contoso.com'
+
+    Returns:
+        Iterable[str]: An iterable of alias strings that are commonly supported.
+    """
+    return OUTLOOK_ATSQL_ALIASES
