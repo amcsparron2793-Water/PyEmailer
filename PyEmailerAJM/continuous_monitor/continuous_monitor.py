@@ -37,6 +37,8 @@ class ContinuousMonitor(ContinuousMonitorBase):
     def _postprocess_alert(self, alert_level=None, **kwargs):
         ...
 
+    # TODO: rewrite this with kwargs for info strings
+    # TODO: make no_alerts_string property so there is more flexibility with format
     def check_for_alerts(self):
         """
         Checks for emails in the specified folder and identifies if there are any alerts. Alerts,

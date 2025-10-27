@@ -50,6 +50,7 @@ class ContinuousMonitorBase(PyEmailer, EmailState):
     ADMIN_EMAIL = []
     ATTRS_TO_CHECK = []
 
+    # TODO: add number of snoozed msgs from GISOverdueRFI
     def __init__(self, display_window: bool, send_emails: bool, **kwargs):
         # Let EmailerInitializer handle logger factory vs instance normalization
         super().__init__(display_window, send_emails, **kwargs)
@@ -83,7 +84,25 @@ class ContinuousMonitorBase(PyEmailer, EmailState):
                 f"WARNING: this is a DEVELOPMENT MODE emailer,"
                 f" it will mock send emails but not actually send them to {self.__class__.ADMIN_EMAIL}"
             )
-
+    # FIXME issue with PyEmailer 1.8.5 causes the base version to disable email handler
+    #  (issue with check for setup_email_handler attr) - below is functional
+    #  def email_handler_init(self):
+    #     try:
+    #         if self.dev_mode:
+    #             self.logger.warning("email handler disabled for dev mode")
+    #         elif (not type(self).__name__ == "ContinuousMonitorAlertSend"
+    #               and not is_instance_of_dynamic(self, "__main__.ContinuousMonitorAlertSend")):
+    #             self.logger.warning(
+    #                 f"email handler not initialized because this is not a ContinuousMonitorAlertSend subclass"
+    #             )
+    #         else:
+    #             self.overdue_logger_class.setup_email_handler(email_msg=self.email,
+    #                                                           logger_admins=self.__class__.ADMIN_EMAIL_LOGGER)
+    #             self.email = self.initialize_new_email()
+    #             self.logger.info("email handler initialized, initialized a new email object for use by monitor")
+    #     except AttributeError as e:
+    #         self.logger.error(f"email handler not initialized because {e}")
+    #         pass
     def email_handler_init(self):
         if self.dev_mode:
             self.logger.warning("email handler disabled for dev mode")
