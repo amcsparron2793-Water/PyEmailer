@@ -103,6 +103,7 @@ class ContinuousMonitorAlertSend(ContinuousMonitor):
         self.SendOrDisplay(**kwargs)
 
     def refresh_messages(self):
+        self.email = self.initialize_new_email()
         self.SetupEmail()
         super().refresh_messages()
 

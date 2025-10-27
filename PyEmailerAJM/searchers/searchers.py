@@ -253,7 +253,6 @@ class FastPathSearcher:
             return e
 
 
-class SubjectSearcher(BaseSearcher, FastPathSearcher):
 class AttributeSearcher(BaseSearcher):
     """ Generic searcher for a specific outlook item attribute. """
 
@@ -321,8 +320,8 @@ class SubjectSearcher(BaseSearcher):
         """
 
         # Normalize search subject and attr label
-        normalized_subject = self._normalize_string(search_subject)
-        normalized_msg_attr = self._normalize_string(msg_attr)
+        normalized_subject = self._normalize_to_string(search_subject)
+        normalized_msg_attr = self._normalize_to_string(msg_attr)
 
         self.searching_string = self.__class__.SEARCHING_STRING.format(search_subject=search_subject,
                                                                        partial_match_ok=partial_match_ok)

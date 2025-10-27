@@ -485,13 +485,15 @@ if __name__ == "__main__":
     module_name = __file__.split('\\')[-1].split('.py')[0]
     em = PyEmailer(display_window=False, send_emails=True, auto_send=False, use_default_logger=False,
                    show_warning_logs_in_console=True)
-    m = em.find_messages_by_subject('Andrew', partial_match_ok=True)
-    print([type(x) for x in m])
+    m = em.searcher.find_messages_by_attribute('Andrew', partial_match_ok=True, no_fastpath_search=True)
+    print([(m.__class__, m.sender, m.sender_email_type, m.subject)
+           for m in [Msg(y) for y in m]])
     # __setup_and_send_test(em)
     # __failed_sends_test(em)
-    x = em.find_messages_by_subject("Exchange St. Site",
-                                    no_fastpath_search=True,
-                                    partial_match_ok=True)
+    x = em.searcher.find_messages_by_attribute("Exchange St. Site",
+                                               no_fastpath_search=True,
+                                               partial_match_ok=True)
+    print(type(x[0]))
     # [x.name for x in m.ItemProperties]
     print([(m.__class__, m.sender, m.sender_email_type, m.subject)
            for m in [Msg(y) for y in x]])  # for m in x])
