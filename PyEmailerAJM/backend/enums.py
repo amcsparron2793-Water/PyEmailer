@@ -34,3 +34,12 @@ class BasicEmailFolderChoices(IntEnum):
 
     def __repr__(self):
         return f"<{self.__class__.__name__}.{self.name} ({self.value})>"
+
+
+class EmailMsgImportanceLevel(IntEnum):
+    LOW = 0
+    NORMAL = 1
+    HIGH = 2
+
+    def __str__(self):
+        return self.name

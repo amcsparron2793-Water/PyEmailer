@@ -1,5 +1,5 @@
 from PyEmailerAJM.backend.errs import *
-from PyEmailerAJM.backend.enums import BasicEmailFolderChoices, AlertTypes
+from PyEmailerAJM.backend.enums import BasicEmailFolderChoices, AlertTypes, EmailMsgImportanceLevel
 from PyEmailerAJM.backend.the_sandman import TheSandman
 from PyEmailerAJM.backend.logger import PyEmailerLogger
 import warnings
@@ -31,4 +31,4 @@ def deprecated(reason: str = ""):
 __all__ = ['deprecated', 'EmailerNotSetupError', 'InvalidAlertLevel',
            'DisplayManualQuit', 'NoMessagesFetched',
            'UnrecognizedEmailError', 'BasicEmailFolderChoices',
-           'AlertTypes', 'TheSandman', 'PyEmailerLogger']
+           'AlertTypes', 'EmailMsgImportanceLevel','TheSandman', 'PyEmailerLogger']

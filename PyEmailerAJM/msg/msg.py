@@ -1,4 +1,7 @@
+from typing import Union
+
 from ..backend.errs import UnrecognizedEmailError
+from ..backend.enums import EmailMsgImportanceLevel
 from abc import abstractmethod
 from os.path import isfile, isabs, abspath, join
 from tempfile import gettempdir
@@ -46,6 +49,7 @@ class _BasicMsgProperties:
     def to(self):
         return self.email_item.To if hasattr(self.email_item, 'To') else self.email_item.to
 
+    @property
     def cc(self):
         return self.email_item.CC if hasattr(self.email_item, 'CC') else self.email_item.cc
 
@@ -69,6 +73,23 @@ class _BasicMsgProperties:
     @attachments.setter
     def attachments(self, value: list):
         self._validate_and_add_attachments(self.email_item, value)
+
+    @property
+    def importance(self):
+        return self.email_item.Importance
+
+    @importance.setter
+    def importance(self, value: Union[EmailMsgImportanceLevel, str, int]):
+        if value in EmailMsgImportanceLevel or value in [x.name for x in EmailMsgImportanceLevel]:
+            if isinstance(value, str):
+                value = EmailMsgImportanceLevel[value].value
+            elif isinstance(value, EmailMsgImportanceLevel):
+                value = value.value
+            elif isinstance(value, int):
+                pass
+            else:
+                raise TypeError(f"Invalid importance level: {value}")
+        self.email_item.Importance = value
 
 
 class Msg(_BasicMsgProperties):
