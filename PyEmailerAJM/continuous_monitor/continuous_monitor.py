@@ -9,6 +9,8 @@ from PyEmailerAJM.msg import MsgFactory
 class ContinuousMonitor(ContinuousMonitorBase):
     TITLE_STRING = " Watching for emails with alerts in {} folder ".center(100, '*')
     MSG_FACTORY_CLASS: MsgFactory = MsgFactory
+    ALERT_CHECK_STR = "Checking for emails with an alert..."
+    NO_ALERTS_STR = "No emails with an alert detected in {read_folder} ({num_snoozed} snoozed)."
 
     def GetMessages(self, folder_index=None):
         """
@@ -18,7 +20,9 @@ class ContinuousMonitor(ContinuousMonitorBase):
         :rtype: list
         """
         msgs = super().GetMessages(folder_index)
-        sorted_msgs = [self.__class__.MSG_FACTORY_CLASS.get_msg(x, logger=self.logger, snooze_checker=self.snooze_tracker) for x in msgs]
+        sorted_msgs = [
+            self.__class__.MSG_FACTORY_CLASS.get_msg(x, logger=self.logger, snooze_checker=self.snooze_tracker) for x in
+            msgs]
         alert_messages = [x for x in sorted_msgs if x is not None and x.msg_alert]
         return alert_messages
 
@@ -37,9 +41,8 @@ class ContinuousMonitor(ContinuousMonitorBase):
     def _postprocess_alert(self, alert_level=None, **kwargs):
         ...
 
-    # TODO: rewrite this with kwargs for info strings
     # TODO: make no_alerts_string property so there is more flexibility with format
-    def check_for_alerts(self):
+    def check_for_alerts(self, **kwargs):
         """
         Checks for emails in the specified folder and identifies if there are any alerts. Alerts,
         if present, are categorized as overdue, warning, or critical warning, and are processed accordingly.
@@ -49,8 +52,10 @@ class ContinuousMonitor(ContinuousMonitorBase):
         :rtype: None
 
         """
-        self.logger.info("\nChecking for emails with an alert...", print_msg=True)
+        alert_check_string = kwargs.get('alert_check_string', self.__class__.ALERT_CHECK_STR)
+        self.logger.info(alert_check_string, print_msg=True)
         self.refresh_messages()
+
         if self.has_overdue:
             self._print_and_postprocess(AlertTypes.OVERDUE)
 
@@ -61,7 +66,10 @@ class ContinuousMonitor(ContinuousMonitorBase):
             self._print_and_postprocess(AlertTypes.CRITICAL_WARNING)
 
         else:
-            self.logger.info(f"No emails with an alert detected in {self.read_folder}", print_msg=True)
+            no_alert_str = kwargs.get('no_alert_string',
+                                      self.__class__.NO_ALERTS_STR.format(read_folder=self.read_folder,
+                                                                          num_snoozed=self.num_snoozed_msgs))
+            self.logger.info(no_alert_str, print_msg=True)
 
         self.snooze_tracker.snooze_msgs(self.all_messages)
 

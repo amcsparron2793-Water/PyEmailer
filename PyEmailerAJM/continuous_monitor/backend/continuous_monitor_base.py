@@ -50,7 +50,6 @@ class ContinuousMonitorBase(PyEmailer, EmailState):
     ADMIN_EMAIL = []
     ATTRS_TO_CHECK = []
 
-    # TODO: add number of snoozed msgs from GISOverdueRFI
     def __init__(self, display_window: bool, send_emails: bool, **kwargs):
         # Let EmailerInitializer handle logger factory vs instance normalization
         super().__init__(display_window, send_emails, **kwargs)
@@ -60,6 +59,14 @@ class ContinuousMonitorBase(PyEmailer, EmailState):
 
         self.log_dev_mode_warnings()
         self.email_handler_init()
+
+    @property
+    def num_snoozed_msgs(self):
+        if (self.snooze_tracker.json_loaded and
+                hasattr(self.snooze_tracker.json_loaded, '__len__')):
+            return len(self.snooze_tracker.json_loaded)
+        else:
+            return 0
 
     @classmethod
     def check_for_class_attrs(cls, class_attrs_to_check):

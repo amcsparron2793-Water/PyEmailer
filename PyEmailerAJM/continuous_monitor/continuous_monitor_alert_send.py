@@ -1,6 +1,9 @@
 from typing import Optional
 
 from PyEmailerAJM.continuous_monitor import ContinuousMonitor
+# This is installed as part of pywin32
+# noinspection PyUnresolvedReferences
+from pythoncom import com_error
 
 NO_COLORIZER = False
 
