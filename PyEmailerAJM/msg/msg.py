@@ -12,7 +12,7 @@ from pywintypes import com_error
 import datetime
 import extract_msg
 from bs4 import BeautifulSoup
-from logging import Logger, getLogger, warning, info
+from logging import Logger, getLogger, info
 
 
 class _BasicMsgProperties:
@@ -87,9 +87,9 @@ class _BasicMsgProperties:
                 value = value.value
             elif isinstance(value, int):
                 pass
-            else:
-                raise TypeError(f"Invalid importance level: {value}")
-        self.email_item.Importance = value
+            self.email_item.Importance = value
+        else:
+            raise TypeError(f"Invalid importance level: {value}")
 
 
 class Msg(_BasicMsgProperties):

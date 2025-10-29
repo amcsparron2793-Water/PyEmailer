@@ -1,6 +1,8 @@
 from typing import Optional
 
 from PyEmailerAJM.continuous_monitor import ContinuousMonitor
+from PyEmailerAJM.backend import EmailMsgImportanceLevel
+
 # This is installed as part of pywin32
 # noinspection PyUnresolvedReferences
 from pythoncom import com_error
@@ -17,6 +19,8 @@ class ContinuousMonitorAlertSend(ContinuousMonitor):
                         "Thanks,\n"
                         "{email_sender}")
     ATTRS_TO_CHECK = ['ADMIN_EMAIL', 'ADMIN_EMAIL_LOGGER']
+    ALERT_EMAIL_IMPORTANCE = EmailMsgImportanceLevel.HIGH
+    DEFAULT_EMAIL_IMPORTANCE = EmailMsgImportanceLevel.NORMAL
 
     def __init__(self, display_window: bool, send_emails: bool, **kwargs):
 
@@ -102,7 +106,22 @@ class ContinuousMonitorAlertSend(ContinuousMonitor):
                                                                      ).replace('\n', '<br>')
         return formatted_full_body
 
+    def _set_email_importance(self, importance_level=None, **kwargs):
+        default_importance = kwargs.get('default_importance', self.__class__.DEFAULT_EMAIL_IMPORTANCE)
+        try:
+            if importance_level is None:
+                self.email.importance = self.__class__.ALERT_EMAIL_IMPORTANCE
+            else:
+                self.email.importance = importance_level
+        except (com_error, TypeError) as e:
+            self.logger.warning(f"Invalid Importance level ({importance_level}) for email,"
+                                f" setting to {default_importance}")
+            self.email.importance = default_importance
+            return self.email
+        return self.email
+
     def _postprocess_alert(self, alert_level=None, **kwargs):
+        self._set_email_importance(**kwargs)
         self.SendOrDisplay(**kwargs)
 
     def refresh_messages(self):
