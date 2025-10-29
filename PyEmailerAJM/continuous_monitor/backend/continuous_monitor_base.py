@@ -91,49 +91,26 @@ class ContinuousMonitorBase(PyEmailer, EmailState):
                 f"WARNING: this is a DEVELOPMENT MODE emailer,"
                 f" it will mock send emails but not actually send them to {self.__class__.ADMIN_EMAIL}"
             )
-    # FIXME issue with PyEmailer 1.8.5 causes the base version to disable email handler
-    #  (issue with check for setup_email_handler attr) - below is functional
-    #  def email_handler_init(self):
-    #     try:
-    #         if self.dev_mode:
-    #             self.logger.warning("email handler disabled for dev mode")
-    #         elif (not type(self).__name__ == "ContinuousMonitorAlertSend"
-    #               and not is_instance_of_dynamic(self, "__main__.ContinuousMonitorAlertSend")):
-    #             self.logger.warning(
-    #                 f"email handler not initialized because this is not a ContinuousMonitorAlertSend subclass"
-    #             )
-    #         else:
-    #             self.overdue_logger_class.setup_email_handler(email_msg=self.email,
-    #                                                           logger_admins=self.__class__.ADMIN_EMAIL_LOGGER)
-    #             self.email = self.initialize_new_email()
-    #             self.logger.info("email handler initialized, initialized a new email object for use by monitor")
-    #     except AttributeError as e:
-    #         self.logger.error(f"email handler not initialized because {e}")
-    #         pass
+
+    # Issue with PyEmailer 1.8.5 causes the base version to disable email handler
+    #  (issue with check for setup_email_handler attr) - below is a functional work around
     def email_handler_init(self):
-        if self.dev_mode:
-            self.logger.warning("email handler disabled for dev mode")
-            return
-        # Prefer a capability check on the configured logger factory/class with optional feature flag
-        has_setup = hasattr(self.logger_class, 'setup_email_handler')
-        enabled = getattr(self.logger_class, 'with_email_handler', True)
-        if has_setup and enabled:
-            try:
-                self.logger_class.setup_email_handler(
-                    email_msg=self.email,
-                    logger_admins=self.__class__.ADMIN_EMAIL_LOGGER,
+        try:
+            if self.dev_mode:
+                self.logger.warning("email handler disabled for dev mode")
+            elif (not type(self).__name__ == "ContinuousMonitorAlertSend"
+                  and not is_instance_of_dynamic(self, "__main__.ContinuousMonitorAlertSend")):
+                self.logger.warning(
+                    f"email handler not initialized because this is not a ContinuousMonitorAlertSend subclass"
                 )
-                # Create a fresh email after wiring the handler so the handler owns the original
+            else:
+                self.logger_class.setup_email_handler(email_msg=self.email,
+                                                      logger_admins=self.__class__.ADMIN_EMAIL_LOGGER)
                 self.email = self.initialize_new_email()
-                self.logger.info("email handler initialized; created new email object for monitor")
-            except Exception:
-                # Ensure we log the full traceback but don't crash initialization unexpectedly
-                self.logger.error("Failed to initialize email handler", exc_info=True)
-        else:
-            self.logger.warning(
-                f"email handler not initialized; logger_class {getattr(self.logger_class, '__class__', type(self.logger_class)).__name__} "
-                f"has no setup_email_handler",
-            )
+                self.logger.info("email handler initialized, initialized a new email object for use by monitor")
+        except AttributeError as e:
+            self.logger.error(f"email handler not initialized because {e}")
+            pass
 
     def _print_and_postprocess(self, alert_level):
         """

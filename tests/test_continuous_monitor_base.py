@@ -11,6 +11,13 @@ class DummyMonitor(ContinuousMonitorBase):
         self.postprocess_called = True
 
 
+# Make DummyMonitor look like ContinuousMonitorAlertSend for the type check
+class ContinuousMonitorAlertSend(ContinuousMonitorBase):
+    """Mock subclass that passes the type check in email_handler_init"""
+    def _postprocess_alert(self, alert_level=None, **kwargs):
+        self.postprocess_called = True
+
+
 class DummyLoggerFactory:
     """Callable logger factory with optional setup_email_handler capability"""
     def __init__(self, with_email_handler=False):
@@ -66,7 +73,7 @@ class TestContinuousMonitorBase(unittest.TestCase):
         # Should debug that email handler not initialized due to lack of capability
         logger = monitor.logger
         warning_calls = [c.args[0] for c in logger.warning.call_args_list]
-        self.assertTrue(any('has no setup_email_handler' in msg for msg in warning_calls))
+        self.assertTrue(any('not initialized because this is not a ContinuousMonitorAlertSend' in msg for msg in warning_calls))
 
     def test_print_and_postprocess_calls_postprocess_when_not_dev(self):
         monitor = DummyMonitor(display_window=False, send_emails=False, dev_mode=False, logger=self.LoggerFactoryNoEmail)
@@ -83,7 +90,8 @@ class TestContinuousMonitorBase(unittest.TestCase):
     def test_initializes_email_handler_when_factory_supports_it(self):
         # Patch fresh email creation to a sentinel value and verify it gets set
         with patch('PyEmailerAJM.py_emailer_ajm.EmailerInitializer.initialize_new_email', return_value='NEW_EMAIL'):
-            monitor = DummyMonitor(display_window=False, send_emails=False, dev_mode=False,
+            # Use ContinuousMonitorAlertSend instead of DummyMonitor to pass the type check
+            monitor = ContinuousMonitorAlertSend(display_window=False, send_emails=False, dev_mode=False,
                                    logger=self.LoggerFactoryWithEmail)
         # Logger factory should have been used to setup email handler with original email
         self.assertIsNotNone(self.LoggerFactoryWithEmail._last_kwargs)
