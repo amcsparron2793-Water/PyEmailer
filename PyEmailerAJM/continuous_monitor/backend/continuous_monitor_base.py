@@ -94,7 +94,9 @@ class ContinuousMonitorBase(PyEmailer, EmailState):
 
     # Issue with PyEmailer 1.8.5 causes the base version to disable email handler
     #  (issue with check for setup_email_handler attr) - below is a functional work around
-    def email_handler_init(self):
+    # TODO: allow the logger_class to be passed in as an arg
+    def email_handler_init(self, **kwargs):
+        logger_class = kwargs.get('logger_class', self.logger_class)
         try:
             if self.dev_mode:
                 self.logger.warning("email handler disabled for dev mode")
@@ -104,8 +106,8 @@ class ContinuousMonitorBase(PyEmailer, EmailState):
                     f"email handler not initialized because this is not a ContinuousMonitorAlertSend subclass"
                 )
             else:
-                self.logger_class.setup_email_handler(email_msg=self.email,
-                                                      logger_admins=self.__class__.ADMIN_EMAIL_LOGGER)
+                logger_class.setup_email_handler(email_msg=self.email,
+                                                 logger_admins=self.__class__.ADMIN_EMAIL_LOGGER)
                 self.email = self.initialize_new_email()
                 self.logger.info("email handler initialized, initialized a new email object for use by monitor")
         except AttributeError as e:
