@@ -41,6 +41,25 @@ class ContinuousMonitor(ContinuousMonitorBase):
     def _postprocess_alert(self, alert_level=None, **kwargs):
         ...
 
+    def _process_no_alert(self, **kwargs):
+        no_alert_str = kwargs.get('no_alert_string',
+                                  self.__class__.NO_ALERTS_STR.format(read_folder=self.read_folder,
+                                                                      num_snoozed=self.num_snoozed_msgs))
+        self.logger.info(no_alert_str, print_msg=True)
+
+    def _classify_and_process(self, **kwargs):
+        if self.has_overdue:
+            self._print_and_postprocess(AlertTypes.OVERDUE)
+
+        elif self.has_warning:
+            self._print_and_postprocess(AlertTypes.WARNING)
+
+        elif self.has_critical_warning:
+            self._print_and_postprocess(AlertTypes.CRITICAL_WARNING)
+
+        else:
+            self._process_no_alert(**kwargs)
+
     # TODO: make no_alerts_string property so there is more flexibility with format
     def check_for_alerts(self, **kwargs):
         """
@@ -56,20 +75,7 @@ class ContinuousMonitor(ContinuousMonitorBase):
         self.logger.info(alert_check_string, print_msg=True)
         self.refresh_messages()
 
-        if self.has_overdue:
-            self._print_and_postprocess(AlertTypes.OVERDUE)
-
-        elif self.has_warning:
-            self._print_and_postprocess(AlertTypes.WARNING)
-
-        elif self.has_critical_warning:
-            self._print_and_postprocess(AlertTypes.CRITICAL_WARNING)
-
-        else:
-            no_alert_str = kwargs.get('no_alert_string',
-                                      self.__class__.NO_ALERTS_STR.format(read_folder=self.read_folder,
-                                                                          num_snoozed=self.num_snoozed_msgs))
-            self.logger.info(no_alert_str, print_msg=True)
+        self._classify_and_process(**kwargs)
 
         self.snooze_tracker.snooze_msgs(self.all_messages)
 
