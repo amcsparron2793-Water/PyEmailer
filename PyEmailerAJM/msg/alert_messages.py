@@ -1,4 +1,5 @@
 from datetime import datetime
+from enum import Enum
 from pathlib import Path
 import inspect
 
@@ -120,10 +121,10 @@ class _AlertMsgBase(Msg, _AlertCheckMethods):
         self.__class__.AlertMsgBaseCheckClsAttrs()
 
     def __init_subclass__(cls, **kwargs):
-        if cls.ALERT_LEVEL and isinstance(cls.ALERT_LEVEL, AlertTypes):
+        if cls.ALERT_LEVEL is not None and isinstance(cls.ALERT_LEVEL, Enum):
             pass
         else:
-            raise AttributeError('ALERT_LEVEL must be set to an AlertTypes value when using this class!')
+            raise AttributeError('ALERT_LEVEL must be set to an AlertTypes or other Enum value when using this class!')
 
     @classmethod
     def AlertMsgBaseCheckClsAttrs(cls):
