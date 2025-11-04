@@ -76,12 +76,21 @@ class ContinuousMonitorBase(PyEmailer, EmailState):
             raise ValueError(f"{c} must be a list of email addresses")
 
     def initialize_helper_classes(self, **kwargs):
-        colorizer = ContinuousColorizer(logger=self.logger)
+        # Normalize logger: if it's a factory, call it to get the instance
+        logger_arg = kwargs.pop('logger', self.logger)
+        if callable(logger_arg) and not hasattr(logger_arg, 'info'):
+            # It's a factory, not a logger instance
+            logger = logger_arg()
+        else:
+            logger = logger_arg
+
+        colorizer = ContinuousColorizer(logger=logger, **kwargs)
         snooze_tracker = SnoozeTracking(
-            Path(kwargs.get('file_name', './snooze_tracker.json')),
-            logger=self.logger,
+            Path(kwargs.pop('file_name', './snooze_tracker.json')),
+            logger=logger, **kwargs
         )
-        sleep_timer = TheSandman(sleep_time_seconds=kwargs.get('sleep_time_seconds', None), logger=self.logger)
+        sleep_timer = TheSandman(sleep_time_seconds=kwargs.pop('sleep_time_seconds', None),
+                                 logger=logger, **kwargs)
         return colorizer, snooze_tracker, sleep_timer
 
     def log_dev_mode_warnings(self):
@@ -94,7 +103,6 @@ class ContinuousMonitorBase(PyEmailer, EmailState):
 
     # Issue with PyEmailer 1.8.5 causes the base version to disable email handler
     #  (issue with check for setup_email_handler attr) - below is a functional work around
-    # TODO: allow the logger_class to be passed in as an arg
     def email_handler_init(self, **kwargs):
         logger_class = kwargs.get('logger_class', self.logger_class)
         try:
