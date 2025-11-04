@@ -75,7 +75,7 @@ class ContinuousMonitorBase(PyEmailer, EmailState):
                 continue
             raise ValueError(f"{c} must be a list of email addresses")
 
-    def initialize_helper_classes(self, **kwargs):
+    def _normalize_logger(self, **kwargs):
         # Normalize logger: if it's a factory, call it to get the instance
         logger_arg = kwargs.pop('logger', self.logger)
         if callable(logger_arg) and not hasattr(logger_arg, 'info'):
@@ -83,7 +83,11 @@ class ContinuousMonitorBase(PyEmailer, EmailState):
             logger = logger_arg()
         else:
             logger = logger_arg
+        return logger
 
+    def initialize_helper_classes(self, **kwargs):
+
+        logger = self._normalize_logger(**kwargs)
         colorizer = ContinuousColorizer(logger=logger, **kwargs)
         snooze_tracker = SnoozeTracking(
             Path(kwargs.pop('file_name', './snooze_tracker.json')),
