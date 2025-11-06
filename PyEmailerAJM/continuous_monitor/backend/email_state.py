@@ -1,6 +1,7 @@
 from abc import abstractmethod
 from logging import Logger
 from typing import Optional
+from enum import Enum as _Enum
 from PyEmailerAJM.backend import AlertTypes
 from PyEmailerAJM.backend import NoMessagesFetched
 
@@ -10,10 +11,15 @@ class EmailState:
     Represents the state and behavior associated with processing email messages
     and evaluating their alert levels (Overdue, Critical Warning, Warning).
 
+    This class is enum-agnostic: subclasses can swap in a different Enum type
+    that defines WARNING, CRITICAL_WARNING, and OVERDUE members via the
+    class attribute `ALERT_ENUM` while keeping the same structure/checking.
+
     Attributes:
         logger: A logger object used to log messages and events during message processing.
         all_messages: A collection of all retrieved email messages.
         _was_refreshed: A boolean indicating whether the messages have been refreshed.
+        ALERT_ENUM: Enum class used to represent alert levels. Defaults to backend.AlertTypes.
 
     Methods:
         __init__:
@@ -35,13 +41,31 @@ class EmailState:
             Raises NoMessagesFetched if messages have not been refreshed.
 
         has_critical_warning:
-            Indicates if there are any messages with an alert level of Critical Warning.
+            Indicates if there are any messages with a critical warning alert level.
             Raises NoMessagesFetched if messages have not been refreshed.
 
         has_warning:
-            Indicates if there are any messages with an alert level of Warning.
+            Indicates if there are any messages with a warning alert level present.
             Raises NoMessagesFetched if messages have not been refreshed.
     """
+
+    # Enum to use for alert comparisons; can be overridden by subclasses
+    ALERT_ENUM = AlertTypes
+    # TODO: make ALERT_ENUM inherit from AlertTypes?
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        # Validate ALERT_ENUM is an Enum subclass and has required members
+        enum_cls = getattr(cls, 'ALERT_ENUM', None)
+        if enum_cls is None:
+            raise AttributeError("Subclasses of EmailState must define ALERT_ENUM.")
+        if not isinstance(enum_cls, type) or not issubclass(enum_cls, _Enum):
+            raise TypeError("ALERT_ENUM must be an Enum subclass.")
+        # FIXME: generalize this check to other members/no members as well
+        missing = [m for m in ("WARNING", "CRITICAL_WARNING", "OVERDUE") if not hasattr(enum_cls, m)]
+        if missing:
+            raise AttributeError(
+                f"ALERT_ENUM must define members: WARNING, CRITICAL_WARNING, OVERDUE. Missing: {', '.join(missing)}"
+            )
 
     def __init__(self):
         self.logger: Optional[Logger] = None
@@ -94,8 +118,9 @@ class EmailState:
         :rtype: bool
         """
         if self.all_messages:
+            enum_cls = self.__class__.ALERT_ENUM
             return any([x for x in self.all_messages
-                        if x.__class__.ALERT_LEVEL == AlertTypes.OVERDUE])
+                        if x.__class__.ALERT_LEVEL == enum_cls.OVERDUE])
         if not self._was_refreshed:
             self._raise_no_messages()
 
@@ -109,8 +134,9 @@ class EmailState:
 
         """
         if self.all_messages:
+            enum_cls = self.__class__.ALERT_ENUM
             return any([x for x in self.all_messages
-                        if x.__class__.ALERT_LEVEL == AlertTypes.CRITICAL_WARNING])
+                        if x.__class__.ALERT_LEVEL == enum_cls.CRITICAL_WARNING])
         elif not self._was_refreshed:
             self._raise_no_messages()
 
@@ -121,7 +147,8 @@ class EmailState:
         :rtype: bool
         """
         if self.all_messages:
+            enum_cls = self.__class__.ALERT_ENUM
             return any([x for x in self.all_messages
-                        if x.__class__.ALERT_LEVEL == AlertTypes.WARNING])
+                        if x.__class__.ALERT_LEVEL == enum_cls.WARNING])
         elif not self._was_refreshed:
             self._raise_no_messages()
