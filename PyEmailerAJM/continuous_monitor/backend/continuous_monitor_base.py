@@ -88,6 +88,8 @@ class ContinuousMonitorBase(PyEmailer, EmailState):
     def initialize_helper_classes(self, **kwargs):
 
         logger = self._normalize_logger(**kwargs)
+        # remove old logger if any from kwargs after normalization
+        kwargs.pop('logger', None)
         colorizer = ContinuousColorizer(logger=logger, **kwargs)
         snooze_tracker = SnoozeTracking(
             Path(kwargs.pop('file_name', './snooze_tracker.json')),
