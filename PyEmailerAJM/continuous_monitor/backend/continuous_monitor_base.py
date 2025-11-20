@@ -1,4 +1,5 @@
 from abc import abstractmethod
+from os import getenv
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 
@@ -49,6 +50,10 @@ class ContinuousMonitorBase(PyEmailer, EmailState):
     ADMIN_EMAIL_LOGGER = []
     ADMIN_EMAIL = []
     ATTRS_TO_CHECK = []
+
+    # TODO: needs implementation
+    DEFAULT_READ_FOLDER_NAME = getenv('READ_EMAIL_FOLDER', None)
+    DEFAULT_SUBFOLDER_NAME = getenv('READ_EMAIL_SUBFOLDER', 'Inbox')
 
     def __init__(self, display_window: bool, send_emails: bool, **kwargs):
         # Let EmailerInitializer handle logger factory vs instance normalization
@@ -182,3 +187,17 @@ class ContinuousMonitorBase(PyEmailer, EmailState):
     @abstractmethod
     def _postprocess_alert(self, alert_level: Optional['AlertTypes'] = None, **kwargs):
         ...
+
+    def _GetReadFolder(self, email_dir_index: int = None, **kwargs):
+        """
+        :param email_dir_index: Specifies the email directory index to be accessed. Defaults to None.
+        :type email_dir_index: int, optional
+        :param kwargs: Additional optional arguments that may be passed. Can include `subfolder_name` to specify a subfolder name.
+        :type kwargs: dict
+        :return: The folder specified either by the email directory index or the default folder along with the subfolder if applicable.
+        :rtype: object
+        """
+        subfolder_name = kwargs.get('subfolder_name', self.__class__.DEFAULT_SUBFOLDER_NAME)
+        if not email_dir_index:
+            email_dir_index = self.__class__.DEFAULT_READ_FOLDER_NAME
+        return super()._GetReadFolder(email_dir_index, subfolder_name=subfolder_name)
