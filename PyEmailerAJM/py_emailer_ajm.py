@@ -5,7 +5,7 @@ py_emailer_ajm.py
 install win32 with pip install pywin32
 """
 # imports
-from os import environ
+from os import environ, getenv
 from os.path import isfile, join, isdir
 from tempfile import gettempdir
 
@@ -149,6 +149,10 @@ class PyEmailer(EmailerInitializer):
 
     DEFAULT_TEMP_SAVE_PATH = gettempdir()
     VALID_EMAIL_FOLDER_CHOICES = [x for x in BasicEmailFolderChoices]
+
+    # TODO: validate this works
+    DEFAULT_READ_FOLDER_NAME = getenv('READ_EMAIL_FOLDER', None)
+    DEFAULT_SUBFOLDER_NAME = getenv('READ_EMAIL_SUBFOLDER', 'Inbox')
 
     def __init__(self, display_window: bool, send_emails: bool, logger: Logger = None, email_sig_filename: str = None,
                  auto_send: bool = False, email_app_name: str = EmailerInitializer.DEFAULT_EMAIL_APP_NAME,
@@ -306,7 +310,10 @@ class PyEmailer(EmailerInitializer):
         :return: The folder specified either by the email directory index or the default folder along with the subfolder if applicable.
         :rtype: object
         """
-        subfolder_name = kwargs.get('subfolder_name', 'Inbox')
+        subfolder_name = kwargs.get('subfolder_name', self.__class__.DEFAULT_SUBFOLDER_NAME)
+        if not email_dir_index:
+            email_dir_index = self.__class__.DEFAULT_READ_FOLDER_NAME
+
         if not email_dir_index:
             email_dir_index = BasicEmailFolderChoices.INBOX
             self.logger.debug(f">>> email_dir_index not specified, defaulting to '{email_dir_index}' folder. <<<")

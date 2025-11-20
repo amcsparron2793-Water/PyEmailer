@@ -51,10 +51,6 @@ class ContinuousMonitorBase(PyEmailer, EmailState):
     ADMIN_EMAIL = []
     ATTRS_TO_CHECK = []
 
-    # TODO: needs implementation
-    DEFAULT_READ_FOLDER_NAME = getenv('READ_EMAIL_FOLDER', None)
-    DEFAULT_SUBFOLDER_NAME = getenv('READ_EMAIL_SUBFOLDER', 'Inbox')
-
     def __init__(self, display_window: bool, send_emails: bool, **kwargs):
         # Let EmailerInitializer handle logger factory vs instance normalization
         super().__init__(display_window, send_emails, **kwargs)
