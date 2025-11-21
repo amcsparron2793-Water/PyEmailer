@@ -1,7 +1,8 @@
 from logging import Filter, DEBUG, ERROR, Handler, FileHandler, StreamHandler, Logger, WARNING
 from typing import Union
 
-from EasyLoggerAJM import EasyLogger, OutlookEmailHandler, StreamHandlerIgnoreExecInfo
+from EasyLoggerAJM import EasyLogger
+from EasyLoggerAJM.logger_parts import OutlookEmailHandler, StreamHandlerIgnoreExecInfo
 from PyEmailerAJM.msg import Msg
 
 

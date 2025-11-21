@@ -86,15 +86,39 @@ class ContinuousMonitorBase(PyEmailer, EmailState):
         return logger
 
     def initialize_helper_classes(self, **kwargs):
+        """
+        Initializes and returns instances of helper classes based on provided parameters.
 
+        This method is responsible for creating and configuring instances of helper
+        classes. It extracts configuration from the provided keyword arguments, uses
+        default class constructors when not overridden, and ensures logging and other
+        options are properly normalized and propagated.
+
+        :param kwargs: Configuration and initialization parameters for helper classes.
+        :type kwargs: dict
+        :return: A tuple containing instances of colorizer, snooze_tracker, and
+                 sleep_timer in that order.
+        :rtype: tuple
+        """
         logger = self._normalize_logger(**kwargs)
-        colorizer = ContinuousColorizer(logger=logger, **kwargs)
-        snooze_tracker = SnoozeTracking(
-            Path(kwargs.pop('file_name', './snooze_tracker.json')),
-            logger=logger, **kwargs
-        )
-        sleep_timer = TheSandman(sleep_time_seconds=kwargs.pop('sleep_time_seconds', None),
-                                 logger=logger, **kwargs)
+        # Remove old logger from kwargs after normalization
+        kwargs.pop('logger', None)
+
+        # Extract helper class factories with defaults
+        colorizer_class = kwargs.pop('colorizer', ContinuousColorizer)
+        snooze_tracker_class = kwargs.pop('snooze_tracker', SnoozeTracking)
+        sleep_timer_class = kwargs.pop('sleep_timer', TheSandman)
+
+        # Initialize helper instances
+        colorizer = colorizer_class(logger=logger, **kwargs)
+
+        snooze_file_path = Path(kwargs.pop('file_name', './snooze_tracker.json'))
+        snooze_tracker = snooze_tracker_class(file_path=snooze_file_path, logger=logger, **kwargs)
+
+        sleep_time_seconds = kwargs.pop('sleep_time_seconds', None)
+        sleep_timer = sleep_timer_class(sleep_time_seconds=sleep_time_seconds,
+                                        logger=logger, **kwargs)
+
         return colorizer, snooze_tracker, sleep_timer
 
     def log_dev_mode_warnings(self):
@@ -105,23 +129,38 @@ class ContinuousMonitorBase(PyEmailer, EmailState):
                 f" it will mock send emails but not actually send them to {self.__class__.ADMIN_EMAIL}"
             )
 
+    def _is_continuous_monitor_alert_send_subclass(self):
+        """Check if this instance is a ContinuousMonitorAlertSend subclass."""
+        is_named_match = type(self).__name__ == "ContinuousMonitorAlertSend"
+        is_dynamic_match = is_instance_of_dynamic(self, "__main__.ContinuousMonitorAlertSend")
+        return is_named_match or is_dynamic_match
+
+    def _should_skip_email_handler_init(self):
+        """Determine if email handler initialization should be skipped."""
+        if self.dev_mode:
+            self.logger.warning("email handler disabled for dev mode")
+            return True
+
+        if not self._is_continuous_monitor_alert_send_subclass():
+            self.logger.warning(
+                "email handler not initialized because this is not a "
+                "ContinuousMonitorAlertSend subclass"
+            )
+            return True
+
+        return False
+
     # Issue with PyEmailer 1.8.5 causes the base version to disable email handler
     #  (issue with check for setup_email_handler attr) - below is a functional work around
     def email_handler_init(self, **kwargs):
         logger_class = kwargs.get('logger_class', self.logger_class)
         try:
-            if self.dev_mode:
-                self.logger.warning("email handler disabled for dev mode")
-            elif (not type(self).__name__ == "ContinuousMonitorAlertSend"
-                  and not is_instance_of_dynamic(self, "__main__.ContinuousMonitorAlertSend")):
-                self.logger.warning(
-                    f"email handler not initialized because this is not a ContinuousMonitorAlertSend subclass"
-                )
-            else:
-                logger_class.setup_email_handler(email_msg=self.email,
-                                                 logger_admins=self.__class__.ADMIN_EMAIL_LOGGER)
-                self.email = self.initialize_new_email()
-                self.logger.info("email handler initialized, initialized a new email object for use by monitor")
+            if self._should_skip_email_handler_init():
+                return
+            logger_class.setup_email_handler(email_msg=self.email,
+                                             logger_admins=self.__class__.ADMIN_EMAIL_LOGGER)
+            self.email = self.initialize_new_email()
+            self.logger.info("email handler initialized, initialized a new email object for use by monitor")
         except AttributeError as e:
             self.logger.error(f"email handler not initialized because {e}")
             pass
