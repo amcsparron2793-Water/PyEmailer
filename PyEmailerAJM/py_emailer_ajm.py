@@ -8,6 +8,7 @@ install win32 with pip install pywin32
 from os import environ
 from os.path import isfile, join, isdir
 from tempfile import gettempdir
+from typing import Optional
 
 # install win32 with pip install pywin32
 import win32com.client as win32
@@ -272,7 +273,7 @@ class PyEmailer(EmailerInitializer):
                 else:
                     print("Please respond with 'y' or 'n'.")
 
-    def display_tracker_check(self) -> bool | None:
+    def display_tracker_check(self) -> Optional[bool]:
         if self.display_window:
             c = self._display_tracking_warning_confirm()
             if c:

@@ -2,6 +2,8 @@ __pycache__
 /logs
 *.log
 /.idea/
+/.tox/
+/build/
 /venv*/
 /*dist/
 /PyEmailerAJM.egg-info/

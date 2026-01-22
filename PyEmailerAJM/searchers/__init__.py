@@ -7,7 +7,9 @@
 #   "urn:schemas:httpmail:subject".
 # - Wrap aliases in [brackets]  when calling Items.Restrict.
 # - For dates, use ISO-like strings or properly constructed COM dates.
-OUTLOOK_ATSQL_ALIASES: tuple[str, ...] = (
+from typing import Tuple
+
+OUTLOOK_ATSQL_ALIASES: Tuple[str, ...] = (
     # Mail/general
     'Subject', 'Body', 'Categories', 'MessageClass', 'Size', 'Importance', 'Sensitivity', 'UnRead', 'HasAttachment',
     'EntryID', 'ConversationTopic',

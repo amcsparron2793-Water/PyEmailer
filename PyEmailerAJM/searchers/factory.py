@@ -1,5 +1,5 @@
 from collections.abc import Callable
-from typing import Type
+from typing import Type, Tuple, Optional
 
 from . import BaseSearcher, AttributeSearcher, OUTLOOK_ATSQL_ALIASES
 
@@ -9,12 +9,12 @@ class SearcherFactory:
     """Dynamic factory returning a searcher class or instance for a given search option."""
 
     @staticmethod
-    def available_types() -> tuple[str, ...]:
+    def available_types() -> Tuple[str, ...]:
         """All registered specialized search types (from subclasses that set SEARCH_TYPE)."""
         return tuple(sorted(BaseSearcher._REGISTRY.keys()))
 
     @staticmethod
-    def get_searcher(search_type: str, *, attribute: str | None = None, **kwargs) -> BaseSearcher:
+    def get_searcher(search_type: str, *, attribute: Optional[str] = None, **kwargs) -> BaseSearcher:
         """
         Return an instance of a searcher matching `search_type`.
 

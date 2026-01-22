@@ -80,7 +80,8 @@ class _BasicMsgProperties:
 
     @importance.setter
     def importance(self, value: Union[EmailMsgImportanceLevel, str, int]):
-        if value in EmailMsgImportanceLevel or value in [x.name for x in EmailMsgImportanceLevel]:
+        # the previous comparison caused an issue with 3.8 compatability
+        if value in [x for x in EmailMsgImportanceLevel] or value in [x.name for x in EmailMsgImportanceLevel]:
             if isinstance(value, str):
                 value = EmailMsgImportanceLevel[value].value
             elif isinstance(value, EmailMsgImportanceLevel):
@@ -93,7 +94,7 @@ class _BasicMsgProperties:
 
 
 class Msg(_BasicMsgProperties):
-    def __init__(self, email_item: win32.CDispatch or extract_msg.Message, **kwargs):
+    def __init__(self, email_item: Union[win32.CDispatch,extract_msg.Message], **kwargs):
         super().__init__(email_item)
         self._logger: Logger = kwargs.get('logger', getLogger(__name__))
         self.send_success = False

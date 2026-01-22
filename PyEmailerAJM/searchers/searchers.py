@@ -1,6 +1,6 @@
 from abc import abstractmethod
 from collections.abc import Callable, Iterable
-from typing import List, Dict, Type, Optional
+from typing import List, Dict, Type, Optional, Tuple
 
 # Provide a safe fallback for CDispatch when pywin32 is unavailable (e.g., in test environments)
 try:  # pragma: no cover - trivial import guard
@@ -17,11 +17,11 @@ class BaseSearcher:
     # Global registry of searchers keyed by SEARCH_TYPE
     _REGISTRY: Dict[str, Type['BaseSearcher']] = {}
 
-    SEARCH_TYPE: str | None = None  # subclasses set this to a unique key (e.g. 'subject')
+    SEARCH_TYPE: Optional[str] = None  # subclasses set this to a unique key (e.g. 'subject')
     SEARCHING_STRING = "Searching for Messages..."  # partial match ok: {partial_match_ok}"
 
     # NEW: class-level default that can be set once for all instances
-    _DEFAULT_GET_MESSAGES: Optional[Callable[..., Iterable]] = None
+    _DEFAULT_GET_MESSAGES: Optional[Callable] = None#[..., Iterable]] = None
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
@@ -30,7 +30,7 @@ class BaseSearcher:
             key = cls.SEARCH_TYPE.lower()
             BaseSearcher._REGISTRY[key] = cls
 
-    def __init__(self, logger=None, *, get_messages: Callable[..., Iterable] | None = None, **kwargs):
+    def __init__(self, logger=None, *, get_messages: Optional[Callable] = None, **kwargs):
         self._searching_string = None
         if logger:
             self.logger = logger
@@ -49,7 +49,7 @@ class BaseSearcher:
         ...
 
     @classmethod
-    def set_default_get_messages(cls, provider: Callable[..., Iterable]) -> None:
+    def set_default_get_messages(cls, provider: Callable) -> None:
         """Set a global default provider for all searchers (current and future instances).
         Typically provider = py_emailer.GetMessages.
         """
@@ -362,7 +362,7 @@ class SubjectSearcher(BaseSearcher):
 #   "urn:schemas:httpmail:subject".
 # - Wrap aliases in [brackets]  when calling Items.Restrict.
 # - For dates, use ISO-like strings or properly constructed COM dates.
-OUTLOOK_ATSQL_ALIASES: tuple[str, ...] = (
+OUTLOOK_ATSQL_ALIASES: Tuple[str, ...] = (
     # Mail/general
     'Subject', 'Body', 'Categories', 'MessageClass', 'Size', 'Importance', 'Sensitivity', 'UnRead', 'HasAttachment',
     'EntryID', 'ConversationTopic',
@@ -375,7 +375,7 @@ OUTLOOK_ATSQL_ALIASES: tuple[str, ...] = (
 )
 
 
-def get_outlook_sql_aliases() -> Iterable[str]:
+def get_outlook_sql_aliases() -> Iterable:#[str]:
     """Return a tuple of commonly recognized Outlook @SQL field aliases.
 
     Outlook's @SQL provider recognizes a set of field aliases that can be referenced with [Alias]
