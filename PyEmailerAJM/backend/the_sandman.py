@@ -1,7 +1,9 @@
 from datetime import datetime
-from logging import getLogger
+from logging import getLogger, Logger
 from time import sleep
 from typing import Union, Optional
+
+from tqdm import tqdm
 
 
 class TheSandman:
@@ -27,12 +29,16 @@ class TheSandman:
     SECONDS_IN_HOUR = 3600
 
     def __init__(self, sleep_time_seconds=None, **kwargs):
+        self.sleep_time_start = None
+        self.use_visual_sleep = kwargs.get('use_visual_sleep', True)
+
         self.snooze_expiration_limit_hours = kwargs.get('snooze_expiration_limit_hours',
                                                         self.__class__.DEFAULT_SNOOZE_EXPIRATION_LIMIT_HOURS)
         self.sleep_time: int = sleep_time_seconds or self.__class__.DEFAULT_SLEEP_TIME_SECONDS
         self._is_time_remaining = False
         self._sleep_time_string = None
-        self.logger: getLogger = kwargs.get('logger', getLogger(__name__))
+
+        self.logger: Logger = kwargs.get('logger', getLogger(__name__))
         self.sleep_time_string = self.sleep_time
         self.logger.info(f'TheSandman initialized - sleep time set as {self.sleep_time_string}')
 
@@ -51,6 +57,38 @@ class TheSandman:
         else:
             self._sleep_time_string = f'sleeping for {value} {more} second(s)'
 
+        str_parts = [self._sleep_time_string, f'(started at {self.sleep_time_start})']
+        self._sleep_time_string = ' '.join(str_parts)
+
+    def sleep_in_rounds(self, rounds=2, **kwargs):
+        self.sleep_time_start = datetime.now().strftime('%m/%d/%Y %H:%M')
+        if self.use_visual_sleep:
+            kwargs['print_msg'] = False
+
+        dev_mode = kwargs.pop('dev_mode', True)
+        print_msg = kwargs.pop('print_msg', True)
+        self._is_time_remaining = False
+
+        for sr in range(rounds):
+            if sr == rounds - 1:
+                self._is_time_remaining = True
+            sleep_time_seconds = (self.sleep_time // rounds)
+            self.sleep(sleep_time_seconds, print_msg=print_msg, **kwargs)
+
+    def visual_sleep(self, sleep_time_seconds: int) -> None:
+        try:
+            for _ in tqdm(range(sleep_time_seconds),
+                          desc=f"{self.sleep_time_string}",
+                          unit="second"):
+                sleep(1)
+        except Exception as e:
+            if e.__class__.__name__ != 'KeyboardInterrupt':
+                self.logger.error(f"visual_sleep failed: {e}, turning off visual sleep and trying again...")
+                self.use_visual_sleep = False
+                self.sleep(sleep_time_seconds)
+            else:
+                raise
+
     def sleep(self, sleep_time_seconds: int, **kwargs):
         """
         :param sleep_time_seconds: The number of seconds the function should pause execution.
@@ -61,23 +99,10 @@ class TheSandman:
 
         self.sleep_time_string = self.sleep_time if not self._is_time_remaining else sleep_time_seconds
         self.logger.info(self.sleep_time_string, **kwargs)
-        sleep(sleep_time_seconds)
-
-    def sleep_in_rounds(self, rounds=2, **kwargs):
-        """
-        :param rounds: Number of intervals in which the total sleep time is divided. Defaults to 2.
-        :type rounds: int
-        :return: None
-        :rtype: None
-
-        """
-        dev_mode = kwargs.pop('dev_mode', True)
-        print_msg = kwargs.pop('print_msg', True)
-        self._is_time_remaining = False
-        for sr in range(rounds):
-            if sr == rounds - 1:
-                self._is_time_remaining = True
-            self.sleep((self.sleep_time // rounds), print_msg=print_msg, **kwargs)
+        if self.use_visual_sleep:
+            self.visual_sleep(sleep_time_seconds)
+        else:
+            sleep(sleep_time_seconds)
 
     @classmethod
     def is_snooze_expired(cls, snoozed_at: datetime, snooze_expiration_limit_hours: Optional[int] = None):
