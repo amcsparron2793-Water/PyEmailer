@@ -60,6 +60,12 @@ class TheSandman:
         str_parts = [self._sleep_time_string, f'(started at {self.sleep_time_start})']
         self._sleep_time_string = ' '.join(str_parts)
 
+    def _sleep_round(self, curr_sleep_round: int, total_rounds: int, print_msg: bool, **kwargs):
+        if curr_sleep_round == total_rounds - 1:
+            self._is_time_remaining = True
+        sleep_time_seconds = (self.sleep_time // total_rounds)
+        self.sleep(sleep_time_seconds, print_msg=print_msg, **kwargs)
+
     def sleep_in_rounds(self, rounds=2, **kwargs):
         self.sleep_time_start = datetime.now().strftime('%m/%d/%Y %H:%M')
         if self.use_visual_sleep:
@@ -69,11 +75,8 @@ class TheSandman:
         print_msg = kwargs.pop('print_msg', True)
         self._is_time_remaining = False
 
-        for sr in range(rounds):
-            if sr == rounds - 1:
-                self._is_time_remaining = True
-            sleep_time_seconds = (self.sleep_time // rounds)
-            self.sleep(sleep_time_seconds, print_msg=print_msg, **kwargs)
+        for sleep_round in range(rounds):
+            self._sleep_round(sleep_round, rounds, print_msg, **kwargs)
 
     def visual_sleep(self, sleep_time_seconds: int) -> None:
         try:
