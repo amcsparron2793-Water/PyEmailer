@@ -27,10 +27,11 @@ class TheSandman:
     DEFAULT_SLEEP_TIME_SECONDS = 600
     DEFAULT_SNOOZE_EXPIRATION_LIMIT_HOURS = 24
     SECONDS_IN_HOUR = 3600
+    DEFAULT_USE_VISUAL_SLEEP = True
 
     def __init__(self, sleep_time_seconds=None, **kwargs):
         self.sleep_time_start = None
-        self.use_visual_sleep = kwargs.get('use_visual_sleep', True)
+        self.use_visual_sleep = kwargs.get('use_visual_sleep', self.__class__.DEFAULT_USE_VISUAL_SLEEP)
 
         self.snooze_expiration_limit_hours = kwargs.get('snooze_expiration_limit_hours',
                                                         self.__class__.DEFAULT_SNOOZE_EXPIRATION_LIMIT_HOURS)
@@ -60,6 +61,13 @@ class TheSandman:
         str_parts = [self._sleep_time_string, f'(started at {self.sleep_time_start})']
         self._sleep_time_string = ' '.join(str_parts)
 
+    def _setup_sleep_in_rounds(self, **kwargs):
+        self.sleep_time_start = datetime.now().strftime('%m/%d/%Y %H:%M')
+        if self.use_visual_sleep:
+            kwargs['print_msg'] = False
+        self._is_time_remaining = False
+        return kwargs
+
     def _sleep_round(self, curr_sleep_round: int, total_rounds: int, print_msg: bool, **kwargs):
         if curr_sleep_round == total_rounds - 1:
             self._is_time_remaining = True
@@ -67,16 +75,10 @@ class TheSandman:
         self.sleep(sleep_time_seconds, print_msg=print_msg, **kwargs)
 
     def sleep_in_rounds(self, rounds=2, **kwargs):
-        self.sleep_time_start = datetime.now().strftime('%m/%d/%Y %H:%M')
-        if self.use_visual_sleep:
-            kwargs['print_msg'] = False
-
-        dev_mode = kwargs.pop('dev_mode', True)
-        print_msg = kwargs.pop('print_msg', True)
-        self._is_time_remaining = False
+        kwargs = self._setup_sleep_in_rounds(**kwargs)
 
         for sleep_round in range(rounds):
-            self._sleep_round(sleep_round, rounds, print_msg, **kwargs)
+            self._sleep_round(sleep_round, rounds, **kwargs)
 
     def visual_sleep(self, sleep_time_seconds: int) -> None:
         try:
@@ -117,3 +119,8 @@ class TheSandman:
             #print('msg_snoozed expired! Unsnoozing now!')
             return True
         return False
+
+
+if __name__ == '__main__':
+    ts = TheSandman(sleep_time_seconds=30)
+    ts.sleep_in_rounds(rounds=3)
