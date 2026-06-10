@@ -5,5 +5,5 @@ prompt-toolkit==3.0.36
 questionary==2.0.1
 setuptools==78.1.1
 tqdm==4.68.2
-ColorizerAJM~=0.4.1
-EasyLoggerAJM==1.9.7.1
+ColorizerAJM~=0.5
+EasyLoggerAJM==1.9.8

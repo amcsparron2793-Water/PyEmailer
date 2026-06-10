@@ -6,6 +6,7 @@ from typing import Union, Optional
 from tqdm import tqdm
 
 
+# TODO: extract into separate project and make it a dependency
 class TheSandman:
     """
         A utility class to facilitate and log time delays with custom sleep durations.
