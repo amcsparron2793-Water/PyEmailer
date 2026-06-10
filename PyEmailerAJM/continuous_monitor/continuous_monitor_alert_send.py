@@ -10,6 +10,7 @@ from pythoncom import com_error
 NO_COLORIZER = False
 
 
+# TODO: create a version that does not monitor the inbox and only sends emails when triggered
 class ContinuousMonitorAlertSend(ContinuousMonitor):
     ADMIN_EMAIL_LOGGER = []
     ADMIN_EMAIL = []
