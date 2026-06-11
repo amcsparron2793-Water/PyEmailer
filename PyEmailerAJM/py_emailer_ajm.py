@@ -5,7 +5,7 @@ py_emailer_ajm.py
 install win32 with pip install pywin32
 """
 # imports
-from os import environ
+from os import environ, getenv
 from os.path import isfile, join, isdir
 from tempfile import gettempdir
 from typing import Optional
@@ -151,6 +151,10 @@ class PyEmailer(EmailerInitializer):
     DEFAULT_TEMP_SAVE_PATH = gettempdir()
     VALID_EMAIL_FOLDER_CHOICES = [x for x in BasicEmailFolderChoices]
 
+    # TODO: validate this works
+    DEFAULT_READ_FOLDER_NAME = getenv('READ_EMAIL_FOLDER', None)
+    DEFAULT_SUBFOLDER_NAME = getenv('READ_EMAIL_SUBFOLDER', 'Inbox')
+
     def __init__(self, display_window: bool, send_emails: bool, logger: Logger = None, email_sig_filename: str = None,
                  auto_send: bool = False, email_app_name: str = EmailerInitializer.DEFAULT_EMAIL_APP_NAME,
                  namespace_name: str = EmailerInitializer.DEFAULT_NAMESPACE_NAME, **kwargs):
@@ -173,10 +177,17 @@ class PyEmailer(EmailerInitializer):
         self.logger.info(f"searcher {self.searcher.__class__.__name__} initialized.")
 
     @property
+    def current_session_exchange_user_email(self):
+        """Returns the primary SMTP address of the current user's Exchange account."""
+        session_current_user = self.namespace.Application.Session.CurrentUser
+        exchange_current_user = session_current_user.AddressEntry.GetExchangeUser()
+
+        return exchange_current_user.PrimarySmtpAddress
+
+    @property
     def current_user_email(self):
         if self.email_app_name.lower().startswith('outlook'):
-            self._current_user_email = (
-                self.namespace.Application.Session.CurrentUser.AddressEntry.GetExchangeUser().PrimarySmtpAddress)
+            self._current_user_email = self.current_session_exchange_user_email
         return self._current_user_email
 
     @current_user_email.setter
@@ -307,13 +318,16 @@ class PyEmailer(EmailerInitializer):
         :return: The folder specified either by the email directory index or the default folder along with the subfolder if applicable.
         :rtype: object
         """
-        subfolder_name = kwargs.get('subfolder_name', 'Inbox')
+        subfolder_name = kwargs.get('subfolder_name', self.__class__.DEFAULT_SUBFOLDER_NAME)
+        if not email_dir_index:
+            email_dir_index = self.__class__.DEFAULT_READ_FOLDER_NAME
+
         if not email_dir_index:
             email_dir_index = BasicEmailFolderChoices.INBOX
-            self.logger.debug(f">>> email_dir_index not specified, defaulting to '{email_dir_index}' folder. <<<")
+            self.logger.debug(f"email_dir_index not specified, defaulting to '{email_dir_index}' folder.")
         if not isinstance(email_dir_index, int):
-            self.logger.debug(f">>> email_dir_index is not an int, "
-                              f"defaulting to {email_dir_index} folder and {subfolder_name} subfolder. <<<")
+            self.logger.debug(f"email_dir_index is not an int, "
+                              f"defaulting to {email_dir_index} folder and {subfolder_name} subfolder.")
             return self.namespace.Folders[email_dir_index].Folders[subfolder_name]
 
         else:
