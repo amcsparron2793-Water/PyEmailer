@@ -316,10 +316,10 @@ class PyEmailer(EmailerInitializer):
 
         if not email_dir_index:
             email_dir_index = BasicEmailFolderChoices.INBOX
-            self.logger.debug(f">>> email_dir_index not specified, defaulting to '{email_dir_index}' folder. <<<")
+            self.logger.debug(f"email_dir_index not specified, defaulting to '{email_dir_index}' folder.")
         if not isinstance(email_dir_index, int):
-            self.logger.debug(f">>> email_dir_index is not an int, "
-                              f"defaulting to {email_dir_index} folder and {subfolder_name} subfolder. <<<")
+            self.logger.debug(f"email_dir_index is not an int, "
+                              f"defaulting to {email_dir_index} folder and {subfolder_name} subfolder.")
             return self.namespace.Folders[email_dir_index].Folders[subfolder_name]
 
         else:

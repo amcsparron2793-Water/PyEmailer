@@ -193,7 +193,7 @@ class ContinuousMonitorBase(PyEmailer, EmailState):
         :return: The folder specified either by the email directory index or the default folder along with the subfolder if applicable.
         :rtype: object
         """
-        subfolder_name = kwargs.get('subfolder_name', self.__class__.DEFAULT_SUBFOLDER_NAME)
+        kwargs.setdefault('subfolder_name', self.__class__.DEFAULT_SUBFOLDER_NAME)
         if not email_dir_index:
             email_dir_index = self.__class__.DEFAULT_READ_FOLDER_NAME
-        return super()._GetReadFolder(email_dir_index, subfolder_name=subfolder_name)
+        return super()._GetReadFolder(email_dir_index, **kwargs)
