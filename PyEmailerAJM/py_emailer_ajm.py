@@ -176,10 +176,17 @@ class PyEmailer(EmailerInitializer):
         self.logger.info(f"searcher {self.searcher.__class__.__name__} initialized.")
 
     @property
+    def current_session_exchange_user_email(self):
+        """Returns the primary SMTP address of the current user's Exchange account."""
+        session_current_user = self.namespace.Application.Session.CurrentUser
+        exchange_current_user = session_current_user.AddressEntry.GetExchangeUser()
+
+        return exchange_current_user.PrimarySmtpAddress
+
+    @property
     def current_user_email(self):
         if self.email_app_name.lower().startswith('outlook'):
-            self._current_user_email = (
-                self.namespace.Application.Session.CurrentUser.AddressEntry.GetExchangeUser().PrimarySmtpAddress)
+            self._current_user_email = self.current_session_exchange_user_email
         return self._current_user_email
 
     @current_user_email.setter
