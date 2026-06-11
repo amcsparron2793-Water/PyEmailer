@@ -1,47 +1,52 @@
-from abc import abstractmethod
+from abc import abstractmethod, ABCMeta
 from logging import Logger
 from typing import Optional
+from enum import Enum as _Enum
 from PyEmailerAJM.backend import AlertTypes
 from PyEmailerAJM.backend import NoMessagesFetched
 
 
-class EmailState:
+class BaseEmailState(metaclass=ABCMeta):
     """
-    Represents the state and behavior associated with processing email messages
-    and evaluating their alert levels (Overdue, Critical Warning, Warning).
+    Provides a base class for defining and managing the state of an email system.
 
-    Attributes:
-        logger: A logger object used to log messages and events during message processing.
-        all_messages: A collection of all retrieved email messages.
-        _was_refreshed: A boolean indicating whether the messages have been refreshed.
+    This class is intended to be subclassed to define specific email state behaviors.
+    Subclasses should provide implementations for abstract methods and define the
+    required class-level variables to ensure proper functionality.
 
-    Methods:
-        __init__:
-            Initializes the EmailState instance with default values.
-
-        GetMessages:
-            An abstract method to be implemented by subclasses for retrieving email messages.
-
-        _raise_no_messages:
-            Raises a NoMessagesFetched exception if email messages have not been populated.
-
-        refresh_messages:
-            Populates the `all_messages` attribute by fetching the latest messages
-            using the `GetMessages` method and updates `_was_refreshed` to True.
-
-    Properties:
-        has_overdue:
-            Indicates if there are any messages with an alert level of Overdue.
-            Raises NoMessagesFetched if messages have not been refreshed.
-
-        has_critical_warning:
-            Indicates if there are any messages with an alert level of Critical Warning.
-            Raises NoMessagesFetched if messages have not been refreshed.
-
-        has_warning:
-            Indicates if there are any messages with an alert level of Warning.
-            Raises NoMessagesFetched if messages have not been refreshed.
+    :ivar ALERT_ENUM: Enum to use for alert comparisons. Subclasses must define this.
+    :type ALERT_ENUM: Enum
+    :ivar ALERT_CRITICAL_MEMBERS: Tuple of enum member names that are critical and must exist
+        in the ALERT_ENUM. This must be defined by subclasses.
+    :type ALERT_CRITICAL_MEMBERS: tuple of str
     """
+    # Enum to use for alert comparisons; can be overridden by subclasses
+    ALERT_ENUM = None
+    ALERT_CRITICAL_MEMBERS = ()
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        enum_cls = cls._validate_alert_enum()
+        cls._check_for_missing(enum_cls)
+
+    @classmethod
+    def _check_for_missing(cls, enum_cls):
+        critical_members: tuple[str, ...] = getattr(cls, 'ALERT_CRITICAL_MEMBERS', ())
+        missing = [m for m in critical_members if not hasattr(enum_cls, m)]
+        if missing:
+            raise AttributeError(
+                f"ALERT_ENUM must define members: {', '.join(critical_members)} Missing: {', '.join(missing)}"
+            )
+
+    @classmethod
+    def _validate_alert_enum(cls):
+        # Validate ALERT_ENUM is an Enum subclass and has required members
+        enum_cls = getattr(cls, 'ALERT_ENUM', None)
+        if enum_cls is None:
+            raise AttributeError("Subclasses of EmailState must define ALERT_ENUM.")
+        if not isinstance(enum_cls, type) or not issubclass(enum_cls, _Enum):
+            raise TypeError("ALERT_ENUM must be an Enum subclass.")
+        return enum_cls
 
     def __init__(self):
         self.logger: Optional[Logger] = None
@@ -83,6 +88,39 @@ class EmailState:
         self._was_refreshed = True
         self.logger.info("Successfully refreshed messages from email folder.")
 
+    def _has_alert_level(self, alert_level: _Enum) -> Optional[bool]:
+        """
+        Generic method to check if any messages in all_messages match the specified alert level.
+
+        :param alert_level: The enum member to check for.
+        :return: True if at least one message matches, False if none match, None if not refreshed.
+        """
+        if self.all_messages:
+            return any(x.__class__.ALERT_LEVEL == alert_level for x in self.all_messages)
+        if not self._was_refreshed:
+            self._raise_no_messages()
+        return False
+
+
+class EmailState(BaseEmailState, metaclass=ABCMeta):
+    """
+    Represents an abstract base class for managing the state of email alerts and their associated levels.
+
+    The class provides properties to evaluate the presence of specific alert levels (e.g., overdue, critical warnings,
+    warnings) across the managed messages. Subclasses can customize the alert handling by overriding the
+    ALERT_ENUM attribute. This class is intended to be extended for more specific implementations of email
+    state management.
+
+    :ivar ALERT_ENUM: Enum to use for alert comparisons; can be overridden by subclasses.
+    :type ALERT_ENUM: type
+    :ivar ALERT_CRITICAL_MEMBERS: A tuple consisting of alert levels considered critical.
+    :type ALERT_CRITICAL_MEMBERS: tuple[str, ...]
+    """
+
+    # Enum to use for alert comparisons; can be overridden by subclasses
+    ALERT_ENUM: AlertTypes = AlertTypes
+    ALERT_CRITICAL_MEMBERS: tuple[str, ...] = ("WARNING", "CRITICAL_WARNING", "OVERDUE")
+
     @property
     def has_overdue(self):
         """
@@ -93,11 +131,7 @@ class EmailState:
         :return: True if there are overdue messages, False otherwise.
         :rtype: bool
         """
-        if self.all_messages:
-            return any([x for x in self.all_messages
-                        if x.__class__.ALERT_LEVEL == AlertTypes.OVERDUE])
-        if not self._was_refreshed:
-            self._raise_no_messages()
+        return self._has_alert_level(self.__class__.ALERT_ENUM.OVERDUE)
 
     @property
     def has_critical_warning(self):
@@ -108,11 +142,7 @@ class EmailState:
         :rtype: bool
 
         """
-        if self.all_messages:
-            return any([x for x in self.all_messages
-                        if x.__class__.ALERT_LEVEL == AlertTypes.CRITICAL_WARNING])
-        elif not self._was_refreshed:
-            self._raise_no_messages()
+        return self._has_alert_level(self.__class__.ALERT_ENUM.CRITICAL_WARNING)
 
     @property
     def has_warning(self):
@@ -120,8 +150,4 @@ class EmailState:
         :return: Indicates whether there are any messages of warning level present.
         :rtype: bool
         """
-        if self.all_messages:
-            return any([x for x in self.all_messages
-                        if x.__class__.ALERT_LEVEL == AlertTypes.WARNING])
-        elif not self._was_refreshed:
-            self._raise_no_messages()
+        return self._has_alert_level(self.__class__.ALERT_ENUM.WARNING)
