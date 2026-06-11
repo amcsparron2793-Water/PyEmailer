@@ -37,9 +37,21 @@ class ContinuousMonitor(ContinuousMonitorBase):
         self.auto_send = False
         self.display_window = False
 
-    @abstractmethod
     def _postprocess_alert(self, alert_level=None, **kwargs):
-        ...
+        """
+        Processes the alert after it has been generated, enabling customization or
+        additional handling based on the alert level and other contextual keyword arguments.
+
+        :param alert_level: The severity level of the alert, intended to define
+            the gravity or importance of the alert being processed.
+        :type alert_level: Optional
+        :param kwargs: Additional keyword arguments that can be provided for
+            further customization or handling during alert processing.
+        :type kwargs: dict
+        :return: The processed alert result.
+        :rtype: None
+        """
+        return
 
     def _process_no_alert(self, **kwargs):
         no_alert_str = kwargs.get('no_alert_string',
