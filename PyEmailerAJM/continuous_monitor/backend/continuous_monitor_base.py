@@ -1,6 +1,6 @@
 from abc import abstractmethod
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, List
 
 from PyEmailerAJM import PyEmailer, is_instance_of_dynamic
 from PyEmailerAJM.backend import TheSandman
@@ -46,9 +46,9 @@ class ContinuousMonitorBase(PyEmailer, EmailState):
             Configures the email handler unless running in development mode. Provides appropriate logging
             based on the current mode.
     """
-    ADMIN_EMAIL_LOGGER = []
-    ADMIN_EMAIL = []
-    ATTRS_TO_CHECK = []
+    ADMIN_EMAIL_LOGGER: List[str] = []
+    ADMIN_EMAIL: List[str] = []
+    ATTRS_TO_CHECK: List[str] = []
 
     def __init__(self, display_window: bool, send_emails: bool, **kwargs):
         # Let EmailerInitializer handle logger factory vs instance normalization
