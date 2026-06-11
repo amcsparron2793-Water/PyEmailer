@@ -1,4 +1,4 @@
-from abc import abstractmethod
+from abc import abstractmethod, ABCMeta
 from logging import Logger
 from typing import Optional
 from enum import Enum as _Enum
@@ -6,7 +6,7 @@ from PyEmailerAJM.backend import AlertTypes
 from PyEmailerAJM.backend import NoMessagesFetched
 
 
-class EmailState:
+class EmailState(metaclass=ABCMeta):
     """
     Represents the state and behavior associated with processing email messages
     and evaluating their alert levels (Overdue, Critical Warning, Warning).
@@ -51,21 +51,31 @@ class EmailState:
 
     # Enum to use for alert comparisons; can be overridden by subclasses
     ALERT_ENUM = AlertTypes
-    # TODO: make ALERT_ENUM inherit from AlertTypes?
+    ALERT_CRITICAL_MEMBERS: tuple[str, ...] = ("WARNING", "CRITICAL_WARNING", "OVERDUE")
+
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
+        enum_cls = cls._validate_alert_enum()
+        cls._check_for_missing(enum_cls)
+
+    @classmethod
+    def _check_for_missing(cls, enum_cls):
+        critical_members: tuple[str, ...] = getattr(cls, 'ALERT_CRITICAL_MEMBERS', ())
+        missing = [m for m in critical_members if not hasattr(enum_cls, m)]
+        if missing:
+            raise AttributeError(
+                f"ALERT_ENUM must define members: {', '.join(critical_members)} Missing: {', '.join(missing)}"
+            )
+
+    @classmethod
+    def _validate_alert_enum(cls):
         # Validate ALERT_ENUM is an Enum subclass and has required members
         enum_cls = getattr(cls, 'ALERT_ENUM', None)
         if enum_cls is None:
             raise AttributeError("Subclasses of EmailState must define ALERT_ENUM.")
         if not isinstance(enum_cls, type) or not issubclass(enum_cls, _Enum):
             raise TypeError("ALERT_ENUM must be an Enum subclass.")
-        # FIXME: generalize this check to other members/no members as well
-        missing = [m for m in ("WARNING", "CRITICAL_WARNING", "OVERDUE") if not hasattr(enum_cls, m)]
-        if missing:
-            raise AttributeError(
-                f"ALERT_ENUM must define members: WARNING, CRITICAL_WARNING, OVERDUE. Missing: {', '.join(missing)}"
-            )
+        return enum_cls
 
     def __init__(self):
         self.logger: Optional[Logger] = None
