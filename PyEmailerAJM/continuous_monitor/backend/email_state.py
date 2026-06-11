@@ -133,6 +133,7 @@ class EmailState(metaclass=ABCMeta):
                         if x.__class__.ALERT_LEVEL == enum_cls.OVERDUE])
         if not self._was_refreshed:
             self._raise_no_messages()
+        return None
 
     # TODO: generalize these properties into a single method that takes an alert level enum and returns a boolean
     @property
@@ -150,6 +151,7 @@ class EmailState(metaclass=ABCMeta):
                         if x.__class__.ALERT_LEVEL == enum_cls.CRITICAL_WARNING])
         elif not self._was_refreshed:
             self._raise_no_messages()
+        return None
 
     @property
     def has_warning(self):
@@ -163,3 +165,4 @@ class EmailState(metaclass=ABCMeta):
                         if x.__class__.ALERT_LEVEL == enum_cls.WARNING])
         elif not self._was_refreshed:
             self._raise_no_messages()
+        return None
