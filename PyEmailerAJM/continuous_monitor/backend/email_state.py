@@ -134,6 +134,7 @@ class EmailState(metaclass=ABCMeta):
         if not self._was_refreshed:
             self._raise_no_messages()
 
+    # TODO: generalize these properties into a single method that takes an alert level enum and returns a boolean
     @property
     def has_critical_warning(self):
         """
