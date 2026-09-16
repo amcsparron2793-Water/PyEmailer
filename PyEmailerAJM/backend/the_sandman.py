@@ -117,6 +117,7 @@ class TheSandman:
         else:
             sleep(sleep_time_seconds)
 
+    # TODO: this stays if standalone sandman is used
     @classmethod
     def is_snooze_expired(cls, snoozed_at: datetime, snooze_expiration_limit_hours: Optional[int] = None):
         if not snooze_expiration_limit_hours:

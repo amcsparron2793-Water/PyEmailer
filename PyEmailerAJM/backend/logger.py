@@ -1,9 +1,13 @@
 from logging import Filter, DEBUG, ERROR, Handler, FileHandler, StreamHandler, Logger, WARNING
-from typing import Union
+from typing import Union, TYPE_CHECKING
 
 from EasyLoggerAJM import EasyLogger
 from EasyLoggerAJM.logger_parts import OutlookEmailHandler, StreamHandlerIgnoreExecInfo
 from PyEmailerAJM.msg import Msg
+
+if TYPE_CHECKING:
+    # noinspection PyProtectedMember
+    from EasyLoggerAJM.easy_logger import _EasyLoggerCustomLogger
 
 
 class DupeDebugFilter(Filter):

@@ -144,6 +144,7 @@ class _AlertMsgBase(Msg, _AlertCheckMethods):
         if not snooze_checker_entry and self.msg_snoozed_time:
             # FIXME: is this the cause of the "\snooze_tracking.py", line 102, in write_entry
             #  TypeError: fromisoformat: argument must be str
+            # TODO: change this to be able to accept a passed in class
             snooze_expired = TheSandman.is_snooze_expired(self.msg_snoozed_time)
         elif not snooze_checker_entry and not self.msg_snoozed_time:
             snooze_expired = True
