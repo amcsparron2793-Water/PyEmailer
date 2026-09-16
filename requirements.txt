@@ -6,4 +6,4 @@ questionary==2.0.1
 setuptools==78.1.1
 tqdm==4.68.2
 ColorizerAJM~=0.5
-EasyLoggerAJM==1.9.8
+EasyLoggerAJM==1.9.9.2
