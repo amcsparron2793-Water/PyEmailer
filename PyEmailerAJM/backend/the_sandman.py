@@ -64,6 +64,7 @@ class TheSandman:
 
     def _setup_sleep_in_rounds(self, **kwargs):
         self.sleep_time_start = datetime.now().strftime('%m/%d/%Y %H:%M')
+        kwargs.setdefault('print_msg', True)
         if self.use_visual_sleep:
             kwargs['print_msg'] = False
         self._is_time_remaining = False
@@ -77,7 +78,6 @@ class TheSandman:
 
     def sleep_in_rounds(self, rounds=2, **kwargs):
         kwargs = self._setup_sleep_in_rounds(**kwargs)
-
         for sleep_round in range(rounds):
             self._sleep_round(sleep_round, rounds, **kwargs)
 
@@ -95,6 +95,12 @@ class TheSandman:
             else:
                 raise
 
+    def _basic_log_or_print_sleep_time_string(self, **kwargs):
+        if hasattr(self, 'logger'):
+            self.logger.info(self.sleep_time_string, **kwargs)
+        if kwargs.get('print_msg', False) and not hasattr(self, 'logger'):
+            print(self.sleep_time_string)
+
     def sleep(self, sleep_time_seconds: int, **kwargs):
         """
         :param sleep_time_seconds: The number of seconds the function should pause execution.
@@ -104,7 +110,8 @@ class TheSandman:
         """
 
         self.sleep_time_string = self.sleep_time if not self._is_time_remaining else sleep_time_seconds
-        self.logger.info(self.sleep_time_string, **kwargs)
+        self._basic_log_or_print_sleep_time_string(**kwargs)
+
         if self.use_visual_sleep:
             self.visual_sleep(sleep_time_seconds)
         else:

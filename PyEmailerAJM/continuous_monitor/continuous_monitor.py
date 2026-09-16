@@ -91,7 +91,7 @@ class ContinuousMonitor(ContinuousMonitorBase):
 
         self.snooze_tracker.snooze_msgs(self.all_messages)
 
-    def endless_watch(self, stop_condition: Callable[[], bool] = None):
+    def endless_watch(self, stop_condition: Callable[[], bool] = None, **kwargs):
         if not self.dev_mode:
             self._set_args_for_endless_watch()
 
@@ -102,9 +102,9 @@ class ContinuousMonitor(ContinuousMonitorBase):
 
         while not stop_condition():
             try:
-                self.check_for_alerts()
+                self.check_for_alerts(**kwargs)
                 self._was_refreshed = False
-                self.sleep_timer.sleep_in_rounds()
+                self.sleep_timer.sleep_in_rounds(**kwargs)
             except KeyboardInterrupt:
                 self.logger.error("KeyboardInterrupt detected, exiting program.")
                 break
