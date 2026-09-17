@@ -7,6 +7,8 @@ from logging import getLogger, basicConfig, getLevelName, INFO, DEBUG
 
 if TYPE_CHECKING:
     from logging import Logger
+    # noinspection PyProtectedMember
+    from PyEmailerAJM.msg.alert_messages import _AlertMsgBase
 
 
 class SnoozeTracking:

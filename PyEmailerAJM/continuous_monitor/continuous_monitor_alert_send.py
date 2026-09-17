@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 from PyEmailerAJM.continuous_monitor import ContinuousMonitor
 from PyEmailerAJM.backend import EmailMsgImportanceLevel
@@ -6,6 +6,10 @@ from PyEmailerAJM.backend import EmailMsgImportanceLevel
 # This is installed as part of pywin32
 # noinspection PyUnresolvedReferences
 from pythoncom import com_error
+
+if TYPE_CHECKING:
+    # noinspection PyProtectedMember
+    from PyEmailerAJM.msg.alert_messages import _AlertMsgBase
 
 NO_COLORIZER = False
 

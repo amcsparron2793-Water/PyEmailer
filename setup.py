@@ -21,7 +21,7 @@ setup(
     download_url=f'https://github.com/amcsparron2793-Water/PyEmailer/archive/refs/tags/{get_property("__version__", project_name)}.tar.gz',
     keywords=["Outlook", "Email", "Automation"],
     install_requires=['pywin32', 'extract_msg', 'email_validator', 'questionary',
-                      'EasyLoggerAJM', 'ColorizerAJM', 'tdqm'],
+                      'EasyLoggerAJM', 'ColorizerAJM', 'tdqm', 'TheSandmanAJM'],
     license='MIT License',
     author='Amcsparron',
     author_email='amcsparron@albanyny.gov',

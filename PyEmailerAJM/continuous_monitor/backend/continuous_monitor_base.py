@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Optional, List
 
 from PyEmailerAJM import PyEmailer, is_instance_of_dynamic
-from PyEmailerAJM.backend import TheSandman
+from PyEmailerAJM.backend import PyEmailerTheSandman
 from . import ContinuousColorizer, SnoozeTracking, EmailState
 
 if TYPE_CHECKING:
@@ -38,7 +38,7 @@ class ContinuousMonitorBase(PyEmailer, EmailState):
 
         initialize_helper_classes(self, **kwargs):
             Sets up and returns instances of helper classes including ContinuousColorizer, SnoozeTracking,
-            and TheSandman, each initialized with parameters from **kwargs.
+            and PyEmailerTheSandman, each initialized with parameters from **kwargs.
 
         log_dev_mode_warnings(self):
             Logs warnings if the `dev_mode` attribute is set to True.
@@ -108,7 +108,7 @@ class ContinuousMonitorBase(PyEmailer, EmailState):
         # Extract helper class factories with defaults
         colorizer_class = kwargs.pop('colorizer', ContinuousColorizer)
         snooze_tracker_class = kwargs.pop('snooze_tracker', SnoozeTracking)
-        sleep_timer_class = kwargs.pop('sleep_timer', TheSandman)
+        sleep_timer_class = kwargs.pop('sleep_timer', PyEmailerTheSandman)
 
         # Initialize helper instances
         colorizer = colorizer_class(logger=logger, **kwargs)

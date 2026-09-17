@@ -6,7 +6,7 @@ import inspect
 import win32com.client as win32
 # pylint: disable=import-error
 from PyEmailerAJM.msg import Msg
-from PyEmailerAJM.backend import TheSandman
+from PyEmailerAJM.backend import PyEmailerTheSandman
 from PyEmailerAJM.backend import AlertTypes
 
 
@@ -145,11 +145,11 @@ class _AlertMsgBase(Msg, _AlertCheckMethods):
             # FIXME: is this the cause of the "\snooze_tracking.py", line 102, in write_entry
             #  TypeError: fromisoformat: argument must be str
             # TODO: change this to be able to accept a passed in class
-            snooze_expired = TheSandman.is_snooze_expired(self.msg_snoozed_time)
+            snooze_expired = PyEmailerTheSandman.is_snooze_expired(self.msg_snoozed_time)
         elif not snooze_checker_entry and not self.msg_snoozed_time:
             snooze_expired = True
         else:
-            snooze_expired = TheSandman.is_snooze_expired(snooze_checker_entry)
+            snooze_expired = PyEmailerTheSandman.is_snooze_expired(snooze_checker_entry)
 
         if not snooze_expired:
             self.msg_snoozed = True
