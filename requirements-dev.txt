@@ -1,0 +1,10 @@
+
+-r requirements.txt
+
+setuptools==78.1.1
+build
+colorama
+packaging
+pyproject_hooks
+tox
+twine

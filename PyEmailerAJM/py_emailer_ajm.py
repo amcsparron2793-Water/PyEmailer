@@ -151,7 +151,6 @@ class PyEmailer(EmailerInitializer):
     DEFAULT_TEMP_SAVE_PATH = gettempdir()
     VALID_EMAIL_FOLDER_CHOICES = [x for x in BasicEmailFolderChoices]
 
-    # TODO: validate this works
     DEFAULT_READ_FOLDER_NAME = getenv('READ_EMAIL_FOLDER', None)
     DEFAULT_SUBFOLDER_NAME = getenv('READ_EMAIL_SUBFOLDER', 'Inbox')
 
@@ -309,7 +308,7 @@ class PyEmailer(EmailerInitializer):
                 self.logger.error(e, exc_info=True)
                 raise e
 
-    def _GetReadFolder(self, email_dir_index: int = None, **kwargs):
+    def _GetReadFolder(self, email_dir_index: Optional[int] = None, **kwargs):
         """
         :param email_dir_index: Specifies the email directory index to be accessed. Defaults to None.
         :type email_dir_index: int, optional
@@ -320,7 +319,7 @@ class PyEmailer(EmailerInitializer):
         """
         subfolder_name = kwargs.get('subfolder_name', self.__class__.DEFAULT_SUBFOLDER_NAME)
         if not email_dir_index:
-            email_dir_index = self.__class__.DEFAULT_READ_FOLDER_NAME
+            email_dir_index: Optional[str] = self.__class__.DEFAULT_READ_FOLDER_NAME
 
         if not email_dir_index:
             email_dir_index = BasicEmailFolderChoices.INBOX

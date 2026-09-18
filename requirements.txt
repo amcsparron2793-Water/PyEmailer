@@ -1,11 +1,10 @@
 beautifulsoup4==4.13.4
 email_validator==2.1.2
 extract-msg==0.54.1
+pywin32==311
 
 questionary==2.0.1
-setuptools==78.1.1
 
 ColorizerAJM~=0.5
 EasyLoggerAJM==1.9.9.2
 TheSandmanAJM==0.1.1
-# TODO: finish checking that Sandman 0.1.1 functions correctly, then merge and update version etc.
