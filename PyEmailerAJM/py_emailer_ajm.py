@@ -361,7 +361,6 @@ class PyEmailer(EmailerInitializer):
                 self.logger.error(e, exc_info=True)
                 raise e
 
-    # FIXME: this should be rewritten to use the searcher factory etc
     @deprecated("use find_messages_by_subject instead")
     def FindMsgBySubject(self, subject: str, forwarded_message_match: bool = True,
                          reply_msg_match: bool = True, partial_match_ok: bool = False):
