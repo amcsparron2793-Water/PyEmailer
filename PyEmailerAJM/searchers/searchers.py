@@ -116,6 +116,8 @@ class BaseSearcher:
     @staticmethod
     def _normalize_to_string(raw_string: str) -> str:
         """Normalize the given str by converting to lowercase and stripping whitespace."""
+        if raw_string is None:
+            return ""
         return str(raw_string).lower().strip()
 
     @staticmethod
@@ -132,7 +134,7 @@ class BaseSearcher:
         return (search_str in candidate_str) or (candidate_str in search_str)
 
 
-class FastPathSearcher:
+class FastPathSearcher(BaseSearcher):
     FW_PREFIXES: List[str] = []
     RE_PREFIX: List[str] = []
 
@@ -141,6 +143,10 @@ class FastPathSearcher:
         if any([x for x in mandatory_attributes if not hasattr(cls, x)]):
             raise AttributeError(f"All subclasses of FastPathSearcher must define the following attributes: "
                                  f"{', '.join(mandatory_attributes)}")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
     # noinspection PyAbstractClass
     @abstractmethod
     def GetMessages(self):
@@ -346,10 +352,10 @@ class SubjectSearcher(BaseSearcher):
                         partial_match_ok: bool = False) -> bool:
         """Checks if the message subject matches the search subject after removing a prefix."""
         for prefix in prefixes:
-            if message_subject.startswith(prefix.lower()):
-                stripped_subject = message_subject.split(prefix.lower(), 1)[1].strip()
-                return (self._is_exact_match(stripped_subject, search_subject) if not partial_match_ok
-                        else self._is_partial_match(stripped_subject, search_subject))
+            if message_subject.lower().startswith(prefix.lower()):
+                stripped_subject = message_subject.lower().split(prefix.lower(), 1)[1].strip()
+                return (self._is_exact_match(stripped_subject, search_subject.lower()) if not partial_match_ok
+                        else self._is_partial_match(stripped_subject, search_subject.lower()))
         return False
 
 

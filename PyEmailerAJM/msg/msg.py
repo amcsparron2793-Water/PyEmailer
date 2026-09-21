@@ -188,7 +188,7 @@ class Msg(_BasicMsgProperties):
             self._logger.debug("passed in msg has 'HtmlBody' or 'htmlBody' attr")
 
         if (not isinstance(self(), win32.CDispatch)
-                or not hasattr(self(), ('HtmlBody' or 'htmlBody'))):
+                or (not hasattr(self(), 'HtmlBody') and not hasattr(self(), 'htmlBody'))):
             raise AttributeError("msg attr must have 'HtmlBody' attr AND be a CDispatch instance")
         return self()
 
