@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from abc import abstractmethod, ABCMeta
 from logging import Logger
 from typing import Optional
