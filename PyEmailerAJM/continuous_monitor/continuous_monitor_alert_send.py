@@ -1,4 +1,4 @@
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING, Union
 
 from PyEmailerAJM.continuous_monitor import ContinuousMonitor
 from PyEmailerAJM.backend import EmailMsgImportanceLevel
@@ -61,9 +61,9 @@ class ContinuousMonitorAlertSend(ContinuousMonitor):
         :rtype: Any
         """
         if not recipient:
-            recipient = self.__class__.ADMIN_EMAIL
+            recipient: Union[str, list] = self.__class__.ADMIN_EMAIL
             if isinstance(recipient, list):
-                recipient = ' ;'.join(recipient)
+                recipient: str = ' ;'.join(recipient)
         if not text:
             text = self.response_body
         return super().SetupEmail(recipient=recipient, subject=subject,
@@ -93,6 +93,13 @@ class ContinuousMonitorAlertSend(ContinuousMonitor):
                 if super().email_signature is not None else None)
 
     @property
+    def greeting_fmt_admin_email_names(self):
+        formatted_admin_email_names = ', '.join([x.split('@')[0] for
+                                                 x in self.__class__.ADMIN_EMAIL]
+                                                ).replace('\n', '<br>')
+        return formatted_admin_email_names
+
+    @property
     def response_body(self):
         """
         Processes and formats the response body by compiling alert messages and their corresponding alert levels,
@@ -103,13 +110,10 @@ class ContinuousMonitorAlertSend(ContinuousMonitor):
         """
         alert_msgs = [(x.subject, self.get_response_body_alert_level(x)) for x in self.GetMessages()]
         msg_tuple = ', '.join([' - '.join(x) for x in alert_msgs])
-        formatted_admin_email_names = ', '.join([x.split('@')[0] for
-                                                 x in self.__class__.ADMIN_EMAIL]
-                                                ).replace('\n', '<br>')
-        formatted_full_body = self.__class__.DEFAULT_MSG_BODY.format(email_sender=self.email_signature,
-                                                                     msg_tuple=msg_tuple,
-                                                                     admin_email_names=formatted_admin_email_names
-                                                                     ).replace('\n', '<br>')
+        fmt_keys = {"email_sender": self.email_signature,
+                    "msg_tuple": msg_tuple,
+                    "admin_email_names": self.greeting_fmt_admin_email_names}
+        formatted_full_body = self.__class__.DEFAULT_MSG_BODY.format(**fmt_keys).replace('\n', '<br>')
         return formatted_full_body
 
     def _set_email_importance(self, importance_level=None, **kwargs):
@@ -134,6 +138,32 @@ class ContinuousMonitorAlertSend(ContinuousMonitor):
         self.email = self.initialize_new_email()
         self.SetupEmail()
         super().refresh_messages()
+
+
+class NonEmailTriggerCMAL(ContinuousMonitorAlertSend):
+    DEFAULT_MSG_BODY = ("Dear {admin_email_names},\n\n"
+                        "There is SOMETHING that requires attention. \n\n"
+                        "Thanks,\n"
+                        "{email_sender}")
+
+    @property
+    def response_body(self):
+        sub_text = self.__class__.DEFAULT_MSG_BODY.format(email_sender=self.email_signature,
+                                                          admin_email_names=self.greeting_fmt_admin_email_names
+                                                          )
+        return self._py_to_html_breaks(sub_text)
+
+    def GetMessages(self, folder_index=None):
+        self.logger.debug("NonEmailTriggerCMAL.GetMessages() disabled - returning empty list")
+        return []
+
+    def num_snoozed_msgs(self):
+        self.logger.debug("NonEmailTriggerCMAL.num_snoozed_msgs() disabled - returning 0")
+        return 0
+
+    def _classify_and_process(self, **kwargs):
+        # TODO: implement this without relying on EmailState
+        ...
 
 
 if __name__ == '__main__':

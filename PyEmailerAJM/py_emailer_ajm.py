@@ -60,6 +60,14 @@ class EmailerInitializer:
         self.auto_send = auto_send
         self.send_emails = send_emails
 
+    @staticmethod
+    def _py_to_html_breaks(text: str):
+        return text.replace('\n', '<br>')
+
+    @staticmethod
+    def _html_to_py_breaks(text: str):
+        return text.replace('<br>', '\n')
+
     def initialize_emailer_logger(self, logger: Logger = None, **kwargs):
         if logger:
             # If a real logger instance was provided (has .info), use it directly
