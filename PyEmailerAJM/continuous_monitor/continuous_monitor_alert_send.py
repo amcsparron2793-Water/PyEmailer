@@ -166,7 +166,7 @@ class ContinuousMonitorAlertSend(ContinuousMonitor):
         super().refresh_messages()
 
 
-class NonEmailTriggerCMAL(ContinuousMonitorAlertSend):
+class NonEmailTriggerCMAS(ContinuousMonitorAlertSend):
     """
     Represents a specialized alert monitoring class for situations that do not involve email-based alerts.
 
@@ -199,11 +199,11 @@ class NonEmailTriggerCMAL(ContinuousMonitorAlertSend):
         return self._py_to_html_breaks(sub_text)
 
     def GetMessages(self, folder_index=None):
-        self.logger.debug("NonEmailTriggerCMAL.GetMessages() disabled - returning empty list")
+        self.logger.debug(f"{self.__class__.__name__}.GetMessages() disabled - returning empty list")
         return []
 
     def _setup_snooze_tracker_helper(self, **kwargs):
-        self.logger.debug("NonEmailTriggerCMAL.snooze_tracker disabled - returning None")
+        self.logger.debug(f"{self.__class__.__name__}.snooze_tracker disabled - returning None")
         return None
 
     @abstractmethod
@@ -220,7 +220,7 @@ class NonEmailTriggerCMAL(ContinuousMonitorAlertSend):
         ...
 
 
-class _NETCMALTest(NonEmailTriggerCMAL):
+class _NETCMALTest(NonEmailTriggerCMAS):
     def _classify_and_process(self, **kwargs):
         alert_found = kwargs.get('alert_found', True)
         print("_NETCMALTest.classify_and_process() called")

@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from PyEmailerAJM.backend import AlertTypes
 
 
-class _HelperClasses:
+class CMASHelperClasses:
     """
     Provides a set of default helper class factories and methods for managing and
     initializing snooze trackers, colorizers, and sleep timers.
@@ -108,13 +108,14 @@ class ContinuousMonitorBase(PyEmailer, EmailState):
     :ivar ATTRS_TO_CHECK: A list of attributes that need to be verified before usage.
     :type ATTRS_TO_CHECK: List[str]
     :ivar HELPER_CLASSES_CLASS: Specifies the helper class responsible for initializing auxiliary components.
+    :type HELPER_CLASSES_CLASS: CMASHelperClasses
     :ivar dev_mode: Indicates whether the application is running in development mode.
     :type dev_mode: bool
     """
     ADMIN_EMAIL_LOGGER: List[str] = []
     ADMIN_EMAIL: List[str] = []
     ATTRS_TO_CHECK: List[str] = []
-    HELPER_CLASSES_CLASS = _HelperClasses
+    HELPER_CLASSES_CLASS = CMASHelperClasses
 
     def __init__(self, display_window: bool, send_emails: bool, **kwargs):
         # Let EmailerInitializer handle logger factory vs instance normalization

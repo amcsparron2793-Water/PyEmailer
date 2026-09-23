@@ -21,10 +21,10 @@ from PyEmailerAJM.searchers import SearcherFactory
 from PyEmailerAJM.py_emailer_ajm import PyEmailer, EmailerInitializer
 from PyEmailerAJM.continuous_monitor.continuous_monitor import ContinuousMonitor
 from PyEmailerAJM.continuous_monitor.continuous_monitor_alert_send import (ContinuousMonitorAlertSend,
-                                                                           NonEmailTriggerCMAL)
+                                                                           NonEmailTriggerCMAS)
 
 __all__ = ['EmailerNotSetupError', 'DisplayManualQuit', 'deprecated',
            'Msg', 'FailedMsg', 'PyEmailer', 'EmailerInitializer',
-           'SearcherFactory', 'ContinuousMonitor',
-           'is_instance_of_dynamic', 'NonEmailTriggerCMAL']
+           'SearcherFactory', 'ContinuousMonitor', 'ContinuousMonitorAlertSend',
+           'NonEmailTriggerCMAS', 'is_instance_of_dynamic']
 
