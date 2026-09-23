@@ -173,11 +173,12 @@ class TestContinuousMonitorBase(unittest.TestCase):
 
     def test_initialize_helper_classes_and_num_snoozed_msgs(self):
         m = DummyMonitor(display_window=False, send_emails=False, dev_mode=False, logger=self.LoggerFactoryNoEmail)
-        colorizer, snoozer, sleeper = m.initialize_helper_classes(
+        colorizer, snoozer, sleeper = DummyMonitor.HELPER_CLASSES_CLASS.initialize_helper_classes(
+            logger=m.logger,
             colorizer=DummyColorizer,
             snooze_tracker=DummySnoozeTracker,
             sleep_timer=DummySleepTimer,
-            file_name='my_snooze.json',
+            snooze_file_path='my_snooze.json',
             sleep_time_seconds=42,
             extra_opt=123
         )

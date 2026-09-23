@@ -121,6 +121,7 @@ class ContinuousMonitorBase(PyEmailer, EmailState):
         super().__init__(display_window, send_emails, **kwargs)
 
         self.dev_mode = kwargs.get('dev_mode', False)
+        kwargs.pop('logger', None)
 
         (self.colorizer,
          self.snooze_tracker,
