@@ -1,9 +1,11 @@
 import unittest
 from unittest.mock import MagicMock, patch, PropertyMock
 from pathlib import Path
-from PyEmailerAJM.continuous_monitor.continuous_monitor_alert_send import ContinuousMonitorAlertSend, NonEmailTriggerCMAS
+from PyEmailerAJM.continuous_monitor.continuous_monitor_alert_send import ContinuousMonitorAlertSend, \
+    NonEmailTriggerCMAS
 from PyEmailerAJM.backend import EmailMsgImportanceLevel, AlertTypes
 from pythoncom import com_error
+
 
 class TestContinuousMonitorAlertSend(unittest.TestCase):
     def setUp(self):
@@ -11,13 +13,14 @@ class TestContinuousMonitorAlertSend(unittest.TestCase):
         self.mock_colorizer = MagicMock()
         self.mock_snooze_tracker = MagicMock()
         self.mock_sleep_timer = MagicMock()
-        
+
         # Patching necessary methods in the base classes to avoid side effects
-        self.patcher_init_helpers = patch('PyEmailerAJM.continuous_monitor.backend.continuous_monitor_base.CMASHelperClasses.initialize_helper_classes')
+        self.patcher_init_helpers = patch(
+            'PyEmailerAJM.continuous_monitor.backend.continuous_monitor_base.CMASHelperClasses.initialize_helper_classes')
         self.mock_init_helpers = self.patcher_init_helpers.start()
         # It expects 3 values: colorizer, snooze_tracker, sleep_timer
         self.mock_init_helpers.return_value = (self.mock_colorizer, self.mock_snooze_tracker, self.mock_sleep_timer)
-        
+
         # We need to block EmailerInitializer.__init__ from running its real code
         # but we need to ensure self.logger is set because PyEmailer.__init__ uses it.
         def mock_init(instance, *args, **kwargs):
@@ -28,9 +31,10 @@ class TestContinuousMonitorAlertSend(unittest.TestCase):
             instance.send_emails = args[1] if len(args) > 1 else kwargs.get('send_emails', False)
             instance.auto_send = kwargs.get('auto_send', False)
 
-        self.patcher_emailer_init = patch('PyEmailerAJM.py_emailer_ajm.EmailerInitializer.__init__', side_effect=mock_init, autospec=True)
+        self.patcher_emailer_init = patch('PyEmailerAJM.py_emailer_ajm.EmailerInitializer.__init__',
+                                          side_effect=mock_init, autospec=True)
         self.patcher_emailer_init.start()
-        
+
         # Mocking SearcherFactory to avoid real initialization
         self.patcher_searcher_factory = patch('PyEmailerAJM.py_emailer_ajm.SearcherFactory')
         self.mock_searcher_factory = self.patcher_searcher_factory.start()
@@ -39,26 +43,30 @@ class TestContinuousMonitorAlertSend(unittest.TestCase):
 
         # We need to ensure ContinuousMonitorBase.__init__ doesn't fail
         # It calls initialize_helper_classes, email_handler_init, and log_dev_mode_warnings
-        self.patcher_email_handler_init = patch('PyEmailerAJM.continuous_monitor.backend.continuous_monitor_base.ContinuousMonitorBase.email_handler_init')
+        self.patcher_email_handler_init = patch(
+            'PyEmailerAJM.continuous_monitor.backend.continuous_monitor_base.ContinuousMonitorBase.email_handler_init')
         self.patcher_email_handler_init.start()
-        
+
         # Mocking signature
-        self.patcher_signature = patch('PyEmailerAJM.py_emailer_ajm.PyEmailer.email_signature', new_callable=PropertyMock)
+        self.patcher_signature = patch('PyEmailerAJM.py_emailer_ajm.PyEmailer.email_signature',
+                                       new_callable=PropertyMock)
         self.mock_signature = self.patcher_signature.start()
         self.mock_signature.return_value = "Andrew Full\nDeveloper"
 
         # Mock initialize_new_email and SetupEmail for refresh_messages
         self.patcher_init_new_email = patch('PyEmailerAJM.py_emailer_ajm.EmailerInitializer.initialize_new_email')
         self.mock_init_new_email = self.patcher_init_new_email.start()
-        
+
         self.patcher_super_setup_email = patch('PyEmailerAJM.py_emailer_ajm.PyEmailer.SetupEmail')
         self.mock_super_setup_email = self.patcher_super_setup_email.start()
 
-        self.patcher_super_refresh = patch('PyEmailerAJM.continuous_monitor.backend.continuous_monitor_base.ContinuousMonitorBase.refresh_messages')
+        self.patcher_super_refresh = patch(
+            'PyEmailerAJM.continuous_monitor.backend.continuous_monitor_base.ContinuousMonitorBase.refresh_messages')
         self.patcher_super_refresh.start()
 
         # Mocking GetMessages for response_body
-        self.patcher_get_messages = patch('PyEmailerAJM.continuous_monitor.continuous_monitor_alert_send.ContinuousMonitorAlertSend.GetMessages')
+        self.patcher_get_messages = patch(
+            'PyEmailerAJM.continuous_monitor.continuous_monitor_alert_send.ContinuousMonitorAlertSend.GetMessages')
         self.mock_get_messages = self.patcher_get_messages.start()
         self.mock_get_messages.return_value = []
 
@@ -76,7 +84,8 @@ class TestContinuousMonitorAlertSend(unittest.TestCase):
         # We need to ensure that the call to self.__class__.check_for_class_attrs
         # is captured. If we patch the base class version, and it's called on the subclass,
         # it should still be captured if patched correctly.
-        with patch('PyEmailerAJM.continuous_monitor.backend.continuous_monitor_base.ContinuousMonitorBase.check_for_class_attrs') as mock_check:
+        with patch(
+                'PyEmailerAJM.continuous_monitor.backend.continuous_monitor_base.ContinuousMonitorBase.check_for_class_attrs') as mock_check:
             # We must be careful because ContinuousMonitorAlertSend.__init__ 
             # uses "if type(self) is ContinuousMonitorAlertSend:"
             # So if we use MockCMAS, it WON'T call it.
@@ -84,7 +93,8 @@ class TestContinuousMonitorAlertSend(unittest.TestCase):
             mock_check.assert_called_with(instance.ATTRS_TO_CHECK)
 
     def test_init_skips_attrs_in_dev_mode(self):
-        with patch('PyEmailerAJM.continuous_monitor.backend.continuous_monitor_base.ContinuousMonitorBase.check_for_class_attrs') as mock_check:
+        with patch(
+                'PyEmailerAJM.continuous_monitor.backend.continuous_monitor_base.ContinuousMonitorBase.check_for_class_attrs') as mock_check:
             instance = self.MockCMAS(display_window=False, send_emails=True, dev_mode=True)
             mock_check.assert_not_called()
             self.mock_logger.warning.assert_called()
@@ -138,9 +148,9 @@ class TestContinuousMonitorAlertSend(unittest.TestCase):
             mock_msg.__class__.ALERT_LEVEL = AlertTypes.WARNING
             self.mock_colorizer.get_alert_color.return_value = 'yellow'
             self.mock_colorizer.colorize.return_value = '<span style="color: yellow">WARNING</span>'
-            
+
             result = instance.get_response_body_alert_level(mock_msg)
-            
+
             self.mock_colorizer.get_alert_color.assert_called_with(AlertTypes.WARNING)
             self.mock_colorizer.colorize.assert_called_with('WARNING', color='yellow', html_mode=True)
             self.assertEqual(result, '<span style="color: yellow">WARNING</span>')
@@ -159,12 +169,12 @@ class TestContinuousMonitorAlertSend(unittest.TestCase):
     def test_response_body_formatting(self):
         self.MockCMAS.ADMIN_EMAIL = ['andrew@example.com']
         instance = self.MockCMAS(display_window=False, send_emails=True, dev_mode=True)
-        
+
         mock_msg = MagicMock()
         mock_msg.subject = "Test Subject"
         mock_msg.__class__.ALERT_LEVEL = AlertTypes.WARNING
         self.mock_get_messages.return_value = [mock_msg]
-        
+
         with patch.object(instance, 'get_response_body_alert_level', return_value="WARNING"):
             body = instance.response_body
             self.assertIn("Dear andrew,", body)
@@ -186,7 +196,7 @@ class TestContinuousMonitorAlertSend(unittest.TestCase):
     def test_set_email_importance_handles_error(self):
         instance = self.MockCMAS(display_window=False, send_emails=True, dev_mode=True)
         instance.email = MagicMock()
-        
+
         # We use side_effect on the mock directly if possible, or handle PropertyMock correctly.
         # When using type(instance.email).importance = PropertyMock(side_effect=...),
         # every access (get or set) uses the side_effect.
@@ -195,10 +205,10 @@ class TestContinuousMonitorAlertSend(unittest.TestCase):
         # 2. self.email.importance = ... (SET 2 - side_effect[1] -> returns None)
         # 3. return self.email (No access to importance)
         # 4. In test: type(instance.email).importance.call_count (GET - side_effect[2] -> StopIteration!)
-        
+
         mock_importance = PropertyMock(side_effect=[com_error(1, "error", None, None), None, None, None, None])
         type(instance.email).importance = mock_importance
-        
+
         instance._set_email_importance(default_importance=EmailMsgImportanceLevel.NORMAL)
         self.mock_logger.warning.assert_called()
         self.assertGreaterEqual(mock_importance.call_count, 2)
@@ -218,6 +228,7 @@ class TestContinuousMonitorAlertSend(unittest.TestCase):
             self.mock_init_new_email.assert_called()
             mock_setup.assert_called()
 
+
 class TestNonEmailTriggerCMAS(unittest.TestCase):
     def setUp(self):
         self.mock_logger = MagicMock()
@@ -225,11 +236,12 @@ class TestNonEmailTriggerCMAS(unittest.TestCase):
         self.mock_snooze_tracker = MagicMock()
         self.mock_sleep_timer = MagicMock()
 
-        self.patcher_init_helpers = patch('PyEmailerAJM.continuous_monitor.backend.continuous_monitor_base.CMASHelperClasses.initialize_helper_classes')
+        self.patcher_init_helpers = patch(
+            'PyEmailerAJM.continuous_monitor.backend.continuous_monitor_base.CMASHelperClasses.initialize_helper_classes')
         self.mock_init_helpers = self.patcher_init_helpers.start()
         # It expects 3 values: colorizer, snooze_tracker, sleep_timer
         self.mock_init_helpers.return_value = (self.mock_colorizer, self.mock_snooze_tracker, self.mock_sleep_timer)
-        
+
         def mock_init(instance, *args, **kwargs):
             instance.logger = self.mock_logger
             instance.email_app_name = 'outlook.application'
@@ -238,27 +250,31 @@ class TestNonEmailTriggerCMAS(unittest.TestCase):
             instance.send_emails = args[1] if len(args) > 1 else kwargs.get('send_emails', False)
             instance.auto_send = kwargs.get('auto_send', False)
 
-        self.patcher_emailer_init = patch('PyEmailerAJM.py_emailer_ajm.EmailerInitializer.__init__', side_effect=mock_init, autospec=True)
+        self.patcher_emailer_init = patch('PyEmailerAJM.py_emailer_ajm.EmailerInitializer.__init__',
+                                          side_effect=mock_init, autospec=True)
         self.patcher_emailer_init.start()
 
         self.patcher_searcher_factory = patch('PyEmailerAJM.py_emailer_ajm.SearcherFactory')
         self.mock_searcher_factory = self.patcher_searcher_factory.start()
         self.mock_searcher = MagicMock()
         self.mock_searcher_factory.return_value.get_searcher.return_value = self.mock_searcher
-        
-        self.patcher_email_handler_init = patch('PyEmailerAJM.continuous_monitor.backend.continuous_monitor_base.ContinuousMonitorBase.email_handler_init')
+
+        self.patcher_email_handler_init = patch(
+            'PyEmailerAJM.continuous_monitor.backend.continuous_monitor_base.ContinuousMonitorBase.email_handler_init')
         self.patcher_email_handler_init.start()
 
-        self.patcher_signature = patch('PyEmailerAJM.py_emailer_ajm.PyEmailer.email_signature', new_callable=PropertyMock)
+        self.patcher_signature = patch('PyEmailerAJM.py_emailer_ajm.PyEmailer.email_signature',
+                                       new_callable=PropertyMock)
         self.mock_signature = self.patcher_signature.start()
         self.mock_signature.return_value = "Andrew Full"
 
         class ConcreteNonEmail(NonEmailTriggerCMAS):
             ADMIN_EMAIL = ['test@example.com']
             ADMIN_EMAIL_LOGGER = ['test@example.com']
+
             def _classify_and_process(self, **kwargs):
                 pass
-        
+
         self.ConcreteNonEmail = ConcreteNonEmail
 
     def tearDown(self):
@@ -279,6 +295,7 @@ class TestNonEmailTriggerCMAS(unittest.TestCase):
         instance = self.ConcreteNonEmail(display_window=False, send_emails=True, dev_mode=True)
         self.assertIsNone(instance._setup_snooze_tracker_helper())
         self.mock_logger.debug.assert_called()
+
 
 if __name__ == '__main__':
     unittest.main()
