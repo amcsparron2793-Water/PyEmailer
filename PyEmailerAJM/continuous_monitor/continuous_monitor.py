@@ -88,7 +88,7 @@ class ContinuousMonitor(ContinuousMonitorBase):
         self.refresh_messages()
 
         self._classify_and_process(**kwargs)
-        if hasattr(self, 'snooze_tracker'):
+        if getattr(self, 'snooze_tracker', None):
             self.snooze_tracker.snooze_msgs(self.all_messages)
 
     def endless_watch(self, stop_condition: Callable[[], bool] = None, **kwargs):

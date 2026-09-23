@@ -18,6 +18,29 @@ NO_COLORIZER = False
 # TODO: create a version that does not monitor the inbox and only sends emails when triggered
 #  IE get rid of _AlertMsg etc for this new class - see HTTPServerMonitorEmail
 class ContinuousMonitorAlertSend(ContinuousMonitor):
+    """
+    Handles sending email alerts for continuous monitoring functionality.
+
+    This class extends the ContinuousMonitor class to include email alert configuration,
+    response body formatting, and email importance settings. It facilitates monitoring
+    operations with automated email notifications and provides tools for organizing and
+    formatting alert information.
+
+    :ivar ADMIN_EMAIL_LOGGER: Placeholder for logger-related administrative email information.
+    :type ADMIN_EMAIL_LOGGER: list
+    :ivar ADMIN_EMAIL: List of administrative email addresses for notification purposes.
+    :type ADMIN_EMAIL: list
+    :ivar DEFAULT_SUBJECT: Default subject line for email alerts.
+    :type DEFAULT_SUBJECT: str
+    :ivar DEFAULT_MSG_BODY: Template of the default email body content for alerts.
+    :type DEFAULT_MSG_BODY: str
+    :ivar ATTRS_TO_CHECK: List of attributes required to be present in the class.
+    :type ATTRS_TO_CHECK: list
+    :ivar ALERT_EMAIL_IMPORTANCE: Email importance level for alert emails.
+    :type ALERT_EMAIL_IMPORTANCE: EmailMsgImportanceLevel
+    :ivar DEFAULT_EMAIL_IMPORTANCE: Default importance level for general emails.
+    :type DEFAULT_EMAIL_IMPORTANCE: EmailMsgImportanceLevel
+    """
     ADMIN_EMAIL_LOGGER = []
     ADMIN_EMAIL = []
     DEFAULT_SUBJECT = "Email Alert"
@@ -144,10 +167,29 @@ class ContinuousMonitorAlertSend(ContinuousMonitor):
 
 
 class NonEmailTriggerCMAL(ContinuousMonitorAlertSend):
+    """
+    Represents a specialized alert monitoring class for situations that do not involve email-based alerts.
+
+    This class defines mechanisms to monitor and process non-email-based alerts, creating customized
+    alert messages and behavior tailored to specific scenarios. It provides a framework for handling alert
+    situations through abstract methods and overrides specific alert-related logic.
+
+    :ivar DEFAULT_MSG_BODY: Default template for the alert message body.
+    :type DEFAULT_MSG_BODY: str
+    :ivar TITLE_STRING: Title string used for display purposes, formatted with asterisks.
+    :type TITLE_STRING: str
+    :ivar ALERT_CHECK_STR: String indicating that an alert check is in progress.
+    :type ALERT_CHECK_STR: str
+    :ivar NO_ALERTS_STR: String displayed when no alerts are detected.
+    :type NO_ALERTS_STR: str
+    """
     DEFAULT_MSG_BODY = ("Dear {admin_email_names},\n\n"
                         "There is SOMETHING that requires attention. \n\n"
                         "Thanks,\n"
                         "{email_sender}")
+    TITLE_STRING = " Watching for an alert ".center(100, '*')
+    ALERT_CHECK_STR = "Checking for an alert..."
+    NO_ALERTS_STR = "No alerts detected."
 
     @property
     def response_body(self):
@@ -160,9 +202,9 @@ class NonEmailTriggerCMAL(ContinuousMonitorAlertSend):
         self.logger.debug("NonEmailTriggerCMAL.GetMessages() disabled - returning empty list")
         return []
 
-    def num_snoozed_msgs(self):
-        self.logger.debug("NonEmailTriggerCMAL.num_snoozed_msgs() disabled - returning 0")
-        return 0
+    def _setup_snooze_tracker_helper(self, **kwargs):
+        self.logger.debug("NonEmailTriggerCMAL.snooze_tracker disabled - returning None")
+        return None
 
     @abstractmethod
     def _classify_and_process(self, **kwargs):
@@ -178,11 +220,21 @@ class NonEmailTriggerCMAL(ContinuousMonitorAlertSend):
         ...
 
 
+class _NETCMALTest(NonEmailTriggerCMAL):
+    def _classify_and_process(self, **kwargs):
+        alert_found = kwargs.get('alert_found', True)
+        print("_NETCMALTest.classify_and_process() called")
+        if alert_found:
+            self._print_and_postprocess(None)
+        else:
+            self._process_no_alert(**kwargs)
+
+
 if __name__ == '__main__':
     ContinuousMonitorAlertSend.MSG_FACTORY_CLASS.ALERT_SUBJECT_KEYWORDS = ['training']
-    ContinuousMonitorAlertSend.ADMIN_EMAIL = ['amcsparron@albanyny.gov']
-    ContinuousMonitorAlertSend.ADMIN_EMAIL_LOGGER = ContinuousMonitorAlertSend.ADMIN_EMAIL
-    cm = ContinuousMonitorAlertSend(False, False,
-                                    dev_mode=False,
-                                    show_warning_logs_in_console=True)  #, email_sig_filename='Andrew Full.txt')
+    _NETCMALTest.ADMIN_EMAIL = ['amcsparron@albanyny.gov']
+    _NETCMALTest.ADMIN_EMAIL_LOGGER = _NETCMALTest.ADMIN_EMAIL
+    cm = _NETCMALTest(False, False,
+                      dev_mode=True,
+                      show_warning_logs_in_console=True)  #, email_sig_filename='Andrew Full.txt')
     cm.endless_watch()

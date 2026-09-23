@@ -63,11 +63,11 @@ class ContinuousMonitorBase(PyEmailer, EmailState):
 
     @property
     def num_snoozed_msgs(self):
-        if (self.snooze_tracker.json_loaded and
-                hasattr(self.snooze_tracker.json_loaded, '__len__')):
-            return len(self.snooze_tracker.json_loaded)
-        else:
-            return 0
+        if getattr(self, 'snooze_tracker', None) is not None:
+            if (self.snooze_tracker.json_loaded and
+                    hasattr(self.snooze_tracker.json_loaded, '__len__')):
+                return len(self.snooze_tracker.json_loaded)
+        return 0
 
     @classmethod
     def check_for_class_attrs(cls, class_attrs_to_check):
@@ -85,6 +85,33 @@ class ContinuousMonitorBase(PyEmailer, EmailState):
         else:
             logger = logger_arg
         return logger
+
+    def _setup_snooze_tracker_helper(self, **kwargs):
+        logger = kwargs.pop('logger', None)
+        snooze_file_path = kwargs.pop('snooze_file_path', './snooze_tracker.json')
+        snooze_file_path = Path(snooze_file_path)
+
+        snooze_tracker_class = kwargs.pop('snooze_tracker', SnoozeTracking)
+        snooze_tracker = snooze_tracker_class(file_path=snooze_file_path, logger=logger, **kwargs)
+        self.logger.info(f"snooze_tracker initialized, tracking snoozed emails in: {snooze_tracker.file_path}")
+        return snooze_tracker
+
+    def _setup_colorizer_helper(self, **kwargs):
+        logger = kwargs.pop('logger', None)
+        colorizer_class = kwargs.pop('colorizer', ContinuousColorizer)
+        colorizer = colorizer_class(logger=logger, **kwargs)
+        self.logger.info(f"colorizer initialized")
+        return colorizer
+
+    def _setup_sleep_timer_helper(self, **kwargs):
+        logger = kwargs.pop('logger', None)
+        sleep_timer_class = kwargs.pop('sleep_timer', PyEmailerTheSandman)
+
+        sleep_time_seconds = kwargs.pop('sleep_time_seconds', None)
+        sleep_timer = sleep_timer_class(sleep_time_seconds=sleep_time_seconds,
+                                        logger=logger, **kwargs)
+        self.logger.info(f"sleep_timer initialized")
+        return sleep_timer
 
     def initialize_helper_classes(self, **kwargs):
         """
@@ -106,19 +133,9 @@ class ContinuousMonitorBase(PyEmailer, EmailState):
         kwargs.pop('logger', None)
 
         # Extract helper class factories with defaults
-        colorizer_class = kwargs.pop('colorizer', ContinuousColorizer)
-        snooze_tracker_class = kwargs.pop('snooze_tracker', SnoozeTracking)
-        sleep_timer_class = kwargs.pop('sleep_timer', PyEmailerTheSandman)
-
-        # Initialize helper instances
-        colorizer = colorizer_class(logger=logger, **kwargs)
-
-        snooze_file_path = Path(kwargs.pop('file_name', './snooze_tracker.json'))
-        snooze_tracker = snooze_tracker_class(file_path=snooze_file_path, logger=logger, **kwargs)
-
-        sleep_time_seconds = kwargs.pop('sleep_time_seconds', None)
-        sleep_timer = sleep_timer_class(sleep_time_seconds=sleep_time_seconds,
-                                        logger=logger, **kwargs)
+        colorizer = self._setup_colorizer_helper(logger=logger, **kwargs)
+        snooze_tracker = self._setup_snooze_tracker_helper(logger=logger, **kwargs)
+        sleep_timer = self._setup_sleep_timer_helper(logger=logger, **kwargs)
 
         return colorizer, snooze_tracker, sleep_timer
 
