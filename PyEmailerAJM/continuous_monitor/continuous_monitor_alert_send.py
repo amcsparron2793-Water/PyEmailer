@@ -15,8 +15,6 @@ if TYPE_CHECKING:
 NO_COLORIZER = False
 
 
-# TODO: create a version that does not monitor the inbox and only sends emails when triggered
-#  IE get rid of _AlertMsg etc for this new class - see HTTPServerMonitorEmail
 class ContinuousMonitorAlertSend(ContinuousMonitor):
     """
     Handles sending email alerts for continuous monitoring functionality.
