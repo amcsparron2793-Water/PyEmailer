@@ -1,3 +1,4 @@
+from abc import abstractmethod
 from typing import Optional, TYPE_CHECKING, Union
 
 from PyEmailerAJM.continuous_monitor import ContinuousMonitor
@@ -42,7 +43,8 @@ class ContinuousMonitorAlertSend(ContinuousMonitor):
         self.send_emails = True
         self.auto_send = True
         self.display_window = False
-        self.logger.debug("Configured endless_watch: send_emails=True, auto_send=True, display_window=False")
+        self.logger.debug(f"Configured endless_watch: send_emails={self.send_emails}, "
+                          f"auto_send={self.auto_send}, display_window={self.display_window}")
 
     def SetupEmail(self, recipient: Optional[str] = None, subject: str = DEFAULT_SUBJECT,
                    text: str = None, attachments: list = None, **kwargs):
@@ -96,8 +98,8 @@ class ContinuousMonitorAlertSend(ContinuousMonitor):
     def greeting_fmt_admin_email_names(self):
         formatted_admin_email_names = ', '.join([x.split('@')[0] for
                                                  x in self.__class__.ADMIN_EMAIL]
-                                                ).replace('\n', '<br>')
-        return formatted_admin_email_names
+                                                )
+        return self._py_to_html_breaks(formatted_admin_email_names)
 
     @property
     def response_body(self):
@@ -113,8 +115,9 @@ class ContinuousMonitorAlertSend(ContinuousMonitor):
         fmt_keys = {"email_sender": self.email_signature,
                     "msg_tuple": msg_tuple,
                     "admin_email_names": self.greeting_fmt_admin_email_names}
-        formatted_full_body = self.__class__.DEFAULT_MSG_BODY.format(**fmt_keys).replace('\n', '<br>')
-        return formatted_full_body
+
+        formatted_full_body = self.__class__.DEFAULT_MSG_BODY.format(**fmt_keys)
+        return self._py_to_html_breaks(formatted_full_body)
 
     def _set_email_importance(self, importance_level=None, **kwargs):
         default_importance = kwargs.get('default_importance', self.__class__.DEFAULT_EMAIL_IMPORTANCE)
@@ -161,8 +164,17 @@ class NonEmailTriggerCMAL(ContinuousMonitorAlertSend):
         self.logger.debug("NonEmailTriggerCMAL.num_snoozed_msgs() disabled - returning 0")
         return 0
 
+    @abstractmethod
     def _classify_and_process(self, **kwargs):
         # TODO: implement this without relying on EmailState
+        # EX :         if not self.is_machine_up:
+        #                   self._process_machine_down(**kwargs)
+        #                   return
+        #
+        #         if not self.is_server_up:
+        #             self._process_server_down(**kwargs)
+        #         else:
+        #             self._process_no_alert(**kwargs)
         ...
 
 
