@@ -1,7 +1,8 @@
 from abc import abstractmethod
+from logging import Logger
 from os import getenv
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional, List
+from typing import TYPE_CHECKING, Optional, List, Union, Callable
 
 from PyEmailerAJM import PyEmailer, is_instance_of_dynamic
 from PyEmailerAJM.backend import PyEmailerTheSandman
@@ -11,52 +12,119 @@ if TYPE_CHECKING:
     from PyEmailerAJM.backend import AlertTypes
 
 
+class _HelperClasses:
+    """
+    Provides a set of default helper class factories and methods for managing and
+    initializing snooze trackers, colorizers, and sleep timers.
+
+    This class defines factory methods and configuration helpers for creating instances
+    of default or custom implementations of specific utility classes. It is designed to
+    simplify the initialization process while keeping the customization options flexible
+    via keyword arguments.
+
+    :ivar DEFAULT_SNOOZE_TRACKER_CLASS: Default class used to initialize snooze tracker helper.
+    :type DEFAULT_SNOOZE_TRACKER_CLASS: type
+    :ivar DEFAULT_COLORIZER_CLASS: Default class used to initialize colorizer helper.
+    :type DEFAULT_COLORIZER_CLASS: type
+    :ivar DEFAULT_SLEEP_TIMER_CLASS: Default class used to initialize sleep timer helper.
+    :type DEFAULT_SLEEP_TIMER_CLASS: type
+    """
+    DEFAULT_SNOOZE_TRACKER_CLASS = SnoozeTracking
+    DEFAULT_COLORIZER_CLASS = ContinuousColorizer
+    DEFAULT_SLEEP_TIMER_CLASS = PyEmailerTheSandman
+
+    @classmethod
+    def _setup_snooze_tracker_helper(cls, **kwargs):
+        logger = kwargs.pop('logger', None)
+        snooze_file_path = kwargs.pop('snooze_file_path', './snooze_tracker.json')
+        snooze_file_path = Path(snooze_file_path)
+
+        snooze_tracker_class = kwargs.pop('snooze_tracker', cls.DEFAULT_SNOOZE_TRACKER_CLASS)
+        snooze_tracker = snooze_tracker_class(file_path=snooze_file_path, logger=logger, **kwargs)
+        if isinstance(logger, Logger):
+            logger.info(f"snooze_tracker initialized, tracking snoozed emails in: {snooze_tracker.file_path}")
+        return snooze_tracker
+
+    @classmethod
+    def _setup_colorizer_helper(cls, **kwargs):
+        logger = kwargs.pop('logger', None)
+        colorizer_class = kwargs.pop('colorizer', cls.DEFAULT_COLORIZER_CLASS)
+        colorizer = colorizer_class(logger=logger, **kwargs)
+        if isinstance(logger, Logger):
+            logger.info(f"colorizer initialized")
+        return colorizer
+
+    @classmethod
+    def _setup_sleep_timer_helper(cls, **kwargs):
+        logger = kwargs.pop('logger', None)
+        sleep_timer_class = kwargs.pop('sleep_timer', cls.DEFAULT_SLEEP_TIMER_CLASS)
+
+        sleep_time_seconds = kwargs.pop('sleep_time_seconds', None)
+        sleep_timer = sleep_timer_class(sleep_time_seconds=sleep_time_seconds,
+                                        logger=logger, **kwargs)
+        if isinstance(logger, Logger):
+            logger.info(f"sleep_timer initialized")
+        return sleep_timer
+
+    @classmethod
+    def initialize_helper_classes(cls, **kwargs):
+        """
+        Initializes and returns instances of helper classes based on provided parameters.
+
+        This method is responsible for creating and configuring instances of helper
+        classes. It extracts configuration from the provided keyword arguments, uses
+        default class constructors when not overridden, and ensures logging and other
+        options are properly normalized and propagated.
+
+        :param kwargs: Configuration and initialization parameters for helper classes.
+        :type kwargs: dict
+        :return: A tuple containing instances of colorizer, snooze_tracker, and
+                 sleep_timer in that order.
+        :rtype: tuple
+        """
+
+        logger = kwargs.pop('logger', None)
+
+        # Extract helper class factories with defaults
+        colorizer = cls._setup_colorizer_helper(logger=logger, **kwargs)
+        snooze_tracker = cls._setup_snooze_tracker_helper(logger=logger, **kwargs)
+        sleep_timer = cls._setup_sleep_timer_helper(logger=logger, **kwargs)
+
+        return colorizer, snooze_tracker, sleep_timer
+
+
 class ContinuousMonitorBase(PyEmailer, EmailState):
     """
-    Class ContinuousMonitorBase provides functionality to initialize and manage continuous monitoring
-    with optional email notifications. It extends the PyEmailer and EmailState classes and incorporates helper
-    classes for additional functionalities.
+    Base class for monitoring and handling email alerts continuously.
 
-    Attributes:
-        ADMIN_EMAIL_LOGGER (list): A list to store administrator email loggers.
-        ADMIN_EMAIL (list): A list to store administrator email addresses.
-        ATTRS_TO_CHECK (list): A list of class attributes to validate during subclass initialization.
+    This class provides functionalities to monitor alerts, send email notifications,
+    and manage various related components such as snooze trackers, loggers, and email handlers.
+    It allows customization through class-level attributes and helper classes for extensions.
 
-    Methods:
-        __init__(display_window: bool, send_emails: bool, **kwargs):
-            Initializes an instance of ContinuousMonitorBase, setting up logging, helper classes,
-            and initial email configurations. This also checks for a development mode and applies any specified
-            behavior accordingly.
-
-        __init_subclass__(cls, **kwargs):
-            Validates certain class attributes for subclasses by ensuring their presence
-            and that they are non-empty lists.
-
-        check_for_class_attrs(cls, class_attrs_to_check):
-            Validates a list of class attributes to ensure they are defined, are lists,
-            and contain email addresses.
-
-        initialize_helper_classes(self, **kwargs):
-            Sets up and returns instances of helper classes including ContinuousColorizer, SnoozeTracking,
-            and PyEmailerTheSandman, each initialized with parameters from **kwargs.
-
-        log_dev_mode_warnings(self):
-            Logs warnings if the `dev_mode` attribute is set to True.
-
-        email_handler_init(self):
-            Configures the email handler unless running in development mode. Provides appropriate logging
-            based on the current mode.
+    :ivar ADMIN_EMAIL_LOGGER: A list of email addresses where admin logs are sent.
+    :type ADMIN_EMAIL_LOGGER: List[str]
+    :ivar ADMIN_EMAIL: A list of admin email addresses.
+    :type ADMIN_EMAIL: List[str]
+    :ivar ATTRS_TO_CHECK: A list of attributes that need to be verified before usage.
+    :type ATTRS_TO_CHECK: List[str]
+    :ivar HELPER_CLASSES_CLASS: Specifies the helper class responsible for initializing auxiliary components.
+    :ivar dev_mode: Indicates whether the application is running in development mode.
+    :type dev_mode: bool
     """
     ADMIN_EMAIL_LOGGER: List[str] = []
     ADMIN_EMAIL: List[str] = []
     ATTRS_TO_CHECK: List[str] = []
+    HELPER_CLASSES_CLASS = _HelperClasses
 
     def __init__(self, display_window: bool, send_emails: bool, **kwargs):
         # Let EmailerInitializer handle logger factory vs instance normalization
         super().__init__(display_window, send_emails, **kwargs)
 
         self.dev_mode = kwargs.get('dev_mode', False)
-        self.colorizer, self.snooze_tracker, self.sleep_timer = self.initialize_helper_classes(**kwargs)
+
+        (self.colorizer,
+         self.snooze_tracker,
+         self.sleep_timer) = self.__class__.HELPER_CLASSES_CLASS.initialize_helper_classes(logger=self.logger, **kwargs)
 
         self.log_dev_mode_warnings()
         self.email_handler_init()
@@ -76,68 +144,15 @@ class ContinuousMonitorBase(PyEmailer, EmailState):
                 continue
             raise ValueError(f"{c} must be a list of email addresses")
 
-    def _normalize_logger(self, **kwargs):
+    def _normalize_logger(self, **kwargs) -> Logger:
         # Normalize logger: if it's a factory, call it to get the instance
-        logger_arg = kwargs.pop('logger', self.logger)
+        logger_arg: Union[Callable, Logger] = kwargs.pop('logger', self.logger)
         if callable(logger_arg) and not hasattr(logger_arg, 'info'):
             # It's a factory, not a logger instance
-            logger = logger_arg()
+            logger: Logger = logger_arg()
         else:
             logger = logger_arg
         return logger
-
-    def _setup_snooze_tracker_helper(self, **kwargs):
-        logger = kwargs.pop('logger', None)
-        snooze_file_path = kwargs.pop('snooze_file_path', './snooze_tracker.json')
-        snooze_file_path = Path(snooze_file_path)
-
-        snooze_tracker_class = kwargs.pop('snooze_tracker', SnoozeTracking)
-        snooze_tracker = snooze_tracker_class(file_path=snooze_file_path, logger=logger, **kwargs)
-        self.logger.info(f"snooze_tracker initialized, tracking snoozed emails in: {snooze_tracker.file_path}")
-        return snooze_tracker
-
-    def _setup_colorizer_helper(self, **kwargs):
-        logger = kwargs.pop('logger', None)
-        colorizer_class = kwargs.pop('colorizer', ContinuousColorizer)
-        colorizer = colorizer_class(logger=logger, **kwargs)
-        self.logger.info(f"colorizer initialized")
-        return colorizer
-
-    def _setup_sleep_timer_helper(self, **kwargs):
-        logger = kwargs.pop('logger', None)
-        sleep_timer_class = kwargs.pop('sleep_timer', PyEmailerTheSandman)
-
-        sleep_time_seconds = kwargs.pop('sleep_time_seconds', None)
-        sleep_timer = sleep_timer_class(sleep_time_seconds=sleep_time_seconds,
-                                        logger=logger, **kwargs)
-        self.logger.info(f"sleep_timer initialized")
-        return sleep_timer
-
-    def initialize_helper_classes(self, **kwargs):
-        """
-        Initializes and returns instances of helper classes based on provided parameters.
-
-        This method is responsible for creating and configuring instances of helper
-        classes. It extracts configuration from the provided keyword arguments, uses
-        default class constructors when not overridden, and ensures logging and other
-        options are properly normalized and propagated.
-
-        :param kwargs: Configuration and initialization parameters for helper classes.
-        :type kwargs: dict
-        :return: A tuple containing instances of colorizer, snooze_tracker, and
-                 sleep_timer in that order.
-        :rtype: tuple
-        """
-        logger = self._normalize_logger(**kwargs)
-        # Remove old logger from kwargs after normalization
-        kwargs.pop('logger', None)
-
-        # Extract helper class factories with defaults
-        colorizer = self._setup_colorizer_helper(logger=logger, **kwargs)
-        snooze_tracker = self._setup_snooze_tracker_helper(logger=logger, **kwargs)
-        sleep_timer = self._setup_sleep_timer_helper(logger=logger, **kwargs)
-
-        return colorizer, snooze_tracker, sleep_timer
 
     def log_dev_mode_warnings(self):
         if self.dev_mode:
