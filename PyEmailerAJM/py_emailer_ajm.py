@@ -90,7 +90,13 @@ class EmailerInitializer:
 
     def initialize_new_email(self):
         if hasattr(self, 'email_app') and self.email_app is not None:
-            self.email = Msg(self.email_app.CreateItem(0), logger=self.logger)
+            try:
+                self.email = Msg(self.email_app.CreateItem(0), logger=self.logger)
+            except com_error as e:
+                if "The RPC server is unavailable" in e.args[0]:
+                    # TODO: Retry after a delay
+                    pass
+
             return self.email
         raise AttributeError("email_app is not defined. Run 'initialize_email_item_app_and_namespace' first")
 
