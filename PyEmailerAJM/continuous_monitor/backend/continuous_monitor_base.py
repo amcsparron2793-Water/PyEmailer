@@ -129,7 +129,7 @@ class ContinuousMonitorBase(PyEmailer, EmailState):
          self.sleep_timer) = self.__class__.HELPER_CLASSES_CLASS.initialize_helper_classes(logger=self.logger, **kwargs)
 
         self.log_dev_mode_warnings()
-        self.email_handler_init()
+        self.email_handler_init(**kwargs)
 
     @property
     def num_snoozed_msgs(self):
@@ -166,9 +166,13 @@ class ContinuousMonitorBase(PyEmailer, EmailState):
 
     def _is_continuous_monitor_alert_send_subclass(self):
         """Check if this instance is a ContinuousMonitorAlertSend subclass."""
-        is_named_match = type(self).__name__ == "ContinuousMonitorAlertSend"
-        is_dynamic_match = is_instance_of_dynamic(self, "__main__.ContinuousMonitorAlertSend")
-        return is_named_match or is_dynamic_match
+        # Check if the class itself or any of its bases have the name "ContinuousMonitorAlertSend"
+        # This is a more robust way to check for the class without needing to import it directly
+        # and avoiding issues with dynamic imports or __main__ scope.
+        for cls in type(self).mro():
+            if cls.__name__ == "ContinuousMonitorAlertSend":
+                return True
+        return False
 
     def _should_skip_email_handler_init(self):
         """Determine if email handler initialization should be skipped."""
@@ -189,6 +193,7 @@ class ContinuousMonitorBase(PyEmailer, EmailState):
     #  (issue with check for setup_email_handler attr) - below is a functional work around
     def email_handler_init(self, **kwargs):
         logger_class = kwargs.get('logger_class', self.logger_class)
+
         try:
             if self._should_skip_email_handler_init():
                 return
