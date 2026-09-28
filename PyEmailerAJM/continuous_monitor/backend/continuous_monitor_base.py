@@ -1,18 +1,17 @@
 from abc import abstractmethod
 from logging import Logger
-from os import getenv
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional, List, Union, Callable
 
-from PyEmailerAJM import PyEmailer, is_instance_of_dynamic
-from PyEmailerAJM.backend import PyEmailerTheSandman
+from PyEmailerAJM import PyEmailer
 from . import ContinuousColorizer, SnoozeTracking, EmailState
+from ...py_emailer_ajm import EmailerHelperClasses
 
 if TYPE_CHECKING:
     from PyEmailerAJM.backend import AlertTypes
 
 
-class CMASHelperClasses:
+class CMASHelperClasses(EmailerHelperClasses):
     """
     Provides a set of default helper class factories and methods for managing and
     initializing snooze trackers, colorizers, and sleep timers.
@@ -31,7 +30,6 @@ class CMASHelperClasses:
     """
     DEFAULT_SNOOZE_TRACKER_CLASS = SnoozeTracking
     DEFAULT_COLORIZER_CLASS = ContinuousColorizer
-    DEFAULT_SLEEP_TIMER_CLASS = PyEmailerTheSandman
 
     @classmethod
     def _setup_snooze_tracker_helper(cls, **kwargs):
@@ -55,18 +53,6 @@ class CMASHelperClasses:
         return colorizer
 
     @classmethod
-    def _setup_sleep_timer_helper(cls, **kwargs):
-        logger = kwargs.pop('logger', None)
-        sleep_timer_class = kwargs.pop('sleep_timer', cls.DEFAULT_SLEEP_TIMER_CLASS)
-
-        sleep_time_seconds = kwargs.pop('sleep_time_seconds', None)
-        sleep_timer = sleep_timer_class(sleep_time_seconds=sleep_time_seconds,
-                                        logger=logger, **kwargs)
-        if isinstance(logger, Logger):
-            logger.info(f"sleep_timer initialized")
-        return sleep_timer
-
-    @classmethod
     def initialize_helper_classes(cls, **kwargs):
         """
         Initializes and returns instances of helper classes based on provided parameters.
@@ -84,11 +70,11 @@ class CMASHelperClasses:
         """
 
         logger = kwargs.pop('logger', None)
+        sleep_timer = super().initialize_helper_classes(logger=logger, **kwargs)
 
         # Extract helper class factories with defaults
         colorizer = cls._setup_colorizer_helper(logger=logger, **kwargs)
         snooze_tracker = cls._setup_snooze_tracker_helper(logger=logger, **kwargs)
-        sleep_timer = cls._setup_sleep_timer_helper(logger=logger, **kwargs)
 
         return colorizer, snooze_tracker, sleep_timer
 

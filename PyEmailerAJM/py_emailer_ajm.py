@@ -8,7 +8,7 @@ install win32 with pip install pywin32
 from os import environ, getenv
 from os.path import isfile, join, isdir
 from tempfile import gettempdir
-from typing import Optional
+from typing import Optional, Union
 
 # install win32 with pip install pywin32
 import win32com.client as win32
@@ -26,8 +26,45 @@ from prompt_toolkit.output.win32 import NoConsoleScreenBufferError
 from PyEmailerAJM import (EmailerNotSetupError, DisplayManualQuit,
                           deprecated,
                           Msg, FailedMsg)
-from PyEmailerAJM.backend import BasicEmailFolderChoices, PyEmailerLogger
+from PyEmailerAJM.backend import BasicEmailFolderChoices, PyEmailerLogger, PyEmailerTheSandman
 from PyEmailerAJM.searchers import SearcherFactory
+
+
+class EmailerHelperClasses:
+    DEFAULT_SLEEP_TIMER_CLASS = PyEmailerTheSandman
+
+    @classmethod
+    def _setup_sleep_timer_helper(cls, **kwargs) -> PyEmailerTheSandman:
+        logger = kwargs.pop('logger', None)
+        sleep_timer_class = kwargs.pop('sleep_timer', cls.DEFAULT_SLEEP_TIMER_CLASS)
+
+        sleep_time_seconds = kwargs.pop('sleep_time_seconds', None)
+        sleep_timer = sleep_timer_class(sleep_time_seconds=sleep_time_seconds,
+                                        logger=logger, **kwargs)
+        if isinstance(logger, Logger):
+            logger.info(f"sleep_timer initialized")
+        return sleep_timer
+
+    @classmethod
+    def initialize_helper_classes(cls, **kwargs) -> PyEmailerTheSandman:
+        """
+        Initializes and returns instances of helper classes based on provided parameters.
+
+        This method is responsible for creating and configuring instances of helper
+        classes. It extracts configuration from the provided keyword arguments, uses
+        default class constructors when not overridden, and ensures logging and other
+        options are properly normalized and propagated.
+
+        :param kwargs: Configuration and initialization parameters for helper classes.
+        :type kwargs: dict
+        :return: A tuple containing instances of colorizer, snooze_tracker, and
+                 sleep_timer in that order.
+        :rtype: tuple
+        """
+
+        logger = kwargs.pop('logger', None)
+        sleep_timer = cls._setup_sleep_timer_helper(logger=logger, **kwargs)
+        return sleep_timer
 
 
 class EmailerInitializer:
@@ -42,14 +79,19 @@ class EmailerInitializer:
     """
     DEFAULT_EMAIL_APP_NAME = 'outlook.application'
     DEFAULT_NAMESPACE_NAME = 'MAPI'
+    HELPER_CLASSES_CLASS = EmailerHelperClasses
 
     def __init__(self, display_window: bool,
                  send_emails: bool, logger: Logger = None,
                  auto_send: bool = False,
                  email_app_name: str = DEFAULT_EMAIL_APP_NAME,
                  namespace_name: str = DEFAULT_NAMESPACE_NAME, **kwargs):
+
         self.logger, self.logger_class = self.initialize_emailer_logger(logger, **kwargs)
-        # print("Dummy logger in use!")
+        self._has_errored = False
+        # noinspection PyTypeChecker
+        self.sleep_timer = self.__class__.HELPER_CLASSES_CLASS.initialize_helper_classes(
+            logger=self.logger, **kwargs)
 
         self.email_app_name = email_app_name
         self.namespace_name = namespace_name
@@ -91,12 +133,30 @@ class EmailerInitializer:
     def initialize_new_email(self):
         if hasattr(self, 'email_app') and self.email_app is not None:
             try:
+                if not self._has_errored:
+                    raise com_error(-2147023174, "The RPC server is unavailable.", None, None)
                 self.email = Msg(self.email_app.CreateItem(0), logger=self.logger)
             except com_error as e:
-                if "The RPC server is unavailable" in e.args[0]:
+                if len(e.args) < 2:
+                    raise e
+                if "The RPC server is unavailable" in e.args[1]:
+                    self.sleep_timer.sleep_time = 30
+                    self._has_errored = True
+                    try:
+                        raise com_error(-2147023174,
+                                        f"The RPC server is unavailable. Retrying in {self.sleep_timer.sleep_time} seconds",
+                                        None, None) from None
+                    except com_error as e:
+                        self.logger.error(e)
                     # TODO: Retry after a delay
-                    pass
+                        self.sleep_timer.sleep_in_rounds()
+                        self.initialize_new_email()
 
+            sleep_time_init_value = getattr(self.sleep_timer, '_init_sleep_time_given',
+                                            self.sleep_timer.__class__.DEFAULT_SLEEP_TIME_SECONDS)
+            if sleep_time_init_value != self.sleep_timer.sleep_time:
+                self.logger.debug(f"resetting sleep timer to: {sleep_time_init_value}")
+                self.sleep_timer.sleep_time = sleep_time_init_value
             return self.email
         raise AttributeError("email_app is not defined. Run 'initialize_email_item_app_and_namespace' first")
 
