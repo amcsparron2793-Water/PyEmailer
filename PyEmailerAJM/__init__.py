@@ -25,6 +25,6 @@ from PyEmailerAJM.continuous_monitor.continuous_monitor_alert_send import (Conti
 
 __all__ = ['EmailerNotSetupError', 'DisplayManualQuit', 'deprecated',
            'Msg', 'FailedMsg', 'PyEmailer', 'EmailerInitializer',
-           'SearcherFactory', 'ContinuousMonitor', 'ContinuousMonitorAlertSend',
-           'NonEmailTriggerCMAS']
+           'EmailerHelperClasses', 'SearcherFactory', 'ContinuousMonitor',
+           'ContinuousMonitorAlertSend', 'NonEmailTriggerCMAS']
 

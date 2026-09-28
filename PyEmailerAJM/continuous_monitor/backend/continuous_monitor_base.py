@@ -3,9 +3,8 @@ from logging import Logger
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional, List, Union, Callable
 
-from PyEmailerAJM import PyEmailer
+from PyEmailerAJM import PyEmailer, EmailerHelperClasses
 from . import ContinuousColorizer, SnoozeTracking, EmailState
-from ... import EmailerHelperClasses
 
 if TYPE_CHECKING:
     from PyEmailerAJM.backend import AlertTypes
