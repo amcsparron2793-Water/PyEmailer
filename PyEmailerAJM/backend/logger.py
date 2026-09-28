@@ -2,8 +2,12 @@ from logging import Filter, DEBUG, ERROR, Handler, FileHandler, StreamHandler, L
 from typing import Union, TYPE_CHECKING
 
 from EasyLoggerAJM import EasyLogger
+from EasyLoggerAJM.backend import LogFilePrepError
 from EasyLoggerAJM.logger_parts import OutlookEmailHandler, StreamHandlerIgnoreExecInfo
 from PyEmailerAJM.msg import Msg
+
+# noinspection PyUnresolvedReferences
+from pythoncom import com_error
 
 if TYPE_CHECKING:
     # noinspection PyProtectedMember
@@ -33,6 +37,27 @@ class DupeDebugFilter(Filter):
         return False
 
 
+class PyEmailerOutlookEmailHandler(OutlookEmailHandler):
+    APP_CAUSED_ERROR_ERR_CODE = -2147352567
+    MOVED_OR_DELETED_MSG_ERR_CODE = -2147221238
+    VALID_EMAIL_MSG_TYPES = [Msg]
+
+    def get_real_com_error(self, err: com_error):
+        if len(err.args) >= 3 and err.args[0] == self.__class__.APP_CAUSED_ERROR_ERR_CODE:
+            excepinfo = err.args[2]
+
+            if len(excepinfo) >= 6:
+                return excepinfo[5], excepinfo[2]
+
+        return err.args[0], err.args[1]
+
+    def _use_error_template(self, err: com_error, **kwargs):
+        real_err_tuple = self.get_real_com_error(err)
+        msg_moved = real_err_tuple[0] == self.__class__.MOVED_OR_DELETED_MSG_ERR_CODE
+        if msg_moved:
+            return
+
+
 class PyEmailerLogger(EasyLogger):
     def __call__(self):
         return self.logger
@@ -57,7 +82,7 @@ class PyEmailerLogger(EasyLogger):
         :return: None
         :rtype: None
         """
-        email_handler_class = kwargs.get('email_handler_class', OutlookEmailHandler)
+        email_handler_class = kwargs.get('email_handler_class', PyEmailerOutlookEmailHandler)
         # noinspection PyTypeChecker
         email_handler_class.VALID_EMAIL_MSG_TYPES = [Msg]
         try:

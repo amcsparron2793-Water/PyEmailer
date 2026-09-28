@@ -53,6 +53,8 @@ class ContinuousMonitorAlertSend(ContinuousMonitor):
     def __init__(self, display_window: bool, send_emails: bool, **kwargs):
 
         super().__init__(display_window, send_emails, **kwargs)
+        self.logger.name = self.__class__.__name__
+
         if not self.dev_mode:
             if type(self) is ContinuousMonitorAlertSend:
                 self.__class__.check_for_class_attrs(self.__class__.ATTRS_TO_CHECK)
@@ -233,6 +235,6 @@ if __name__ == '__main__':
     _NETCMALTest.ADMIN_EMAIL = ['amcsparron@albanyny.gov']
     _NETCMALTest.ADMIN_EMAIL_LOGGER = _NETCMALTest.ADMIN_EMAIL
     cm = _NETCMALTest(False, False,
-                      dev_mode=True,
+                      dev_mode=False,
                       show_warning_logs_in_console=True)  #, email_sig_filename='Andrew Full.txt')
     cm.endless_watch()

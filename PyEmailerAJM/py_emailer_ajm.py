@@ -87,6 +87,7 @@ class PyEmailer(EmailerInitializer):
         super().__init__(display_window, send_emails, logger,
                          auto_send, email_app_name, namespace_name,
                          **kwargs)
+        self.logger.name = self.__class__.__name__
         self._setup_was_run = False
         self._current_user_email = None
 
