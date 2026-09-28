@@ -30,5 +30,5 @@ def deprecated(reason: str = ""):
 
 __all__ = ['deprecated', 'EmailerNotSetupError', 'InvalidAlertLevel',
            'DisplayManualQuit', 'NoMessagesFetched',
-           'UnrecognizedEmailError', 'BasicEmailFolderChoices',
+           'UnrecognizedEmailError', 'RPCDownError', 'BasicEmailFolderChoices',
            'AlertTypes', 'EmailMsgImportanceLevel', 'PyEmailerTheSandman', 'PyEmailerLogger']

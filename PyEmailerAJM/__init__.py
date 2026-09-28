@@ -18,7 +18,8 @@ from PyEmailerAJM.backend import deprecated
 from PyEmailerAJM.backend.errs import EmailerNotSetupError, DisplayManualQuit
 from PyEmailerAJM.msg import Msg, FailedMsg
 from PyEmailerAJM.searchers import SearcherFactory
-from PyEmailerAJM.py_emailer_ajm import PyEmailer, EmailerInitializer, EmailerHelperClasses
+from PyEmailerAJM.py_emailer_ajm import PyEmailer
+from PyEmailerAJM.initializer import EmailerHelperClasses, EmailerInitializer
 from PyEmailerAJM.continuous_monitor.continuous_monitor import ContinuousMonitor
 from PyEmailerAJM.continuous_monitor.continuous_monitor_alert_send import (ContinuousMonitorAlertSend,
                                                                            NonEmailTriggerCMAS)
