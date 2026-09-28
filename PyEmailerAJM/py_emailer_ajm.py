@@ -26,7 +26,7 @@ from prompt_toolkit.output.win32 import NoConsoleScreenBufferError
 from PyEmailerAJM import (EmailerNotSetupError, DisplayManualQuit,
                           deprecated,
                           Msg, FailedMsg)
-from PyEmailerAJM.backend import BasicEmailFolderChoices, PyEmailerLogger, PyEmailerTheSandman
+from PyEmailerAJM.backend import BasicEmailFolderChoices, PyEmailerLogger, PyEmailerTheSandman, RPCDownError
 from PyEmailerAJM.searchers import SearcherFactory
 
 
@@ -132,7 +132,7 @@ class EmailerInitializer:
         if hasattr(self, 'email_app') and self.email_app is not None:
             try:
                 # if not self._has_errored:
-                    # raise com_error(-2147023174, "The RPC server is unavailable.", None, None)
+                raise com_error(-2147023174, "The RPC server is unavailable.", None, None)
                 self.email = Msg(self.email_app.CreateItem(0), logger=self.logger)
             except com_error as e:
                 if len(e.args) < 2:
@@ -140,10 +140,8 @@ class EmailerInitializer:
                 if "The RPC server is unavailable" in e.args[1]:
                     self.sleep_timer.sleep_time = 30
                     try:
-                        raise com_error(-2147023174,
-                                        f"The RPC server is unavailable. Retrying in {self.sleep_timer.sleep_time} seconds",
-                                        None, None) from None
-                    except com_error as e:
+                        raise RPCDownError(sleep_time=self.sleep_timer.sleep_time) from None
+                    except RPCDownError as e:
                         self.logger.error(e)
                         self.sleep_timer.sleep_in_rounds()
                         self.initialize_new_email()
