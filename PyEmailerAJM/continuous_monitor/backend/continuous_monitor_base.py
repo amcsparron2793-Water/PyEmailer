@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Optional, List, Union, Callable
 
 from PyEmailerAJM import PyEmailer
 from . import ContinuousColorizer, SnoozeTracking, EmailState
-from ...py_emailer_ajm import EmailerHelperClasses
+from ... import EmailerHelperClasses
 
 if TYPE_CHECKING:
     from PyEmailerAJM.backend import AlertTypes
@@ -70,13 +70,12 @@ class CMASHelperClasses(EmailerHelperClasses):
         """
 
         logger = kwargs.pop('logger', None)
-        sleep_timer = super().initialize_helper_classes(logger=logger, **kwargs)
 
         # Extract helper class factories with defaults
         colorizer = cls._setup_colorizer_helper(logger=logger, **kwargs)
         snooze_tracker = cls._setup_snooze_tracker_helper(logger=logger, **kwargs)
 
-        return colorizer, snooze_tracker, sleep_timer
+        return colorizer, snooze_tracker, *super().initialize_helper_classes(logger=logger, **kwargs)
 
 
 class ContinuousMonitorBase(PyEmailer, EmailState):

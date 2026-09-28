@@ -8,7 +8,7 @@ install win32 with pip install pywin32
 from os import environ, getenv
 from os.path import isfile, join, isdir
 from tempfile import gettempdir
-from typing import Optional, Union
+from typing import Optional, Union, Any
 
 # install win32 with pip install pywin32
 import win32com.client as win32
@@ -46,7 +46,7 @@ class EmailerHelperClasses:
         return sleep_timer
 
     @classmethod
-    def initialize_helper_classes(cls, **kwargs) -> PyEmailerTheSandman:
+    def initialize_helper_classes(cls, **kwargs) -> tuple[PyEmailerTheSandman, ...]:
         """
         Initializes and returns instances of helper classes based on provided parameters.
 
@@ -64,7 +64,7 @@ class EmailerHelperClasses:
 
         logger = kwargs.pop('logger', None)
         sleep_timer = cls._setup_sleep_timer_helper(logger=logger, **kwargs)
-        return sleep_timer
+        return (sleep_timer,)
 
 
 class EmailerInitializer:
@@ -88,10 +88,8 @@ class EmailerInitializer:
                  namespace_name: str = DEFAULT_NAMESPACE_NAME, **kwargs):
 
         self.logger, self.logger_class = self.initialize_emailer_logger(logger, **kwargs)
-        self._has_errored = False
-        # noinspection PyTypeChecker
         self.sleep_timer = self.__class__.HELPER_CLASSES_CLASS.initialize_helper_classes(
-            logger=self.logger, **kwargs)
+            logger=self.logger, **kwargs)[-1]
 
         self.email_app_name = email_app_name
         self.namespace_name = namespace_name
@@ -133,22 +131,20 @@ class EmailerInitializer:
     def initialize_new_email(self):
         if hasattr(self, 'email_app') and self.email_app is not None:
             try:
-                if not self._has_errored:
-                    raise com_error(-2147023174, "The RPC server is unavailable.", None, None)
+                # if not self._has_errored:
+                    # raise com_error(-2147023174, "The RPC server is unavailable.", None, None)
                 self.email = Msg(self.email_app.CreateItem(0), logger=self.logger)
             except com_error as e:
                 if len(e.args) < 2:
                     raise e
                 if "The RPC server is unavailable" in e.args[1]:
                     self.sleep_timer.sleep_time = 30
-                    self._has_errored = True
                     try:
                         raise com_error(-2147023174,
                                         f"The RPC server is unavailable. Retrying in {self.sleep_timer.sleep_time} seconds",
                                         None, None) from None
                     except com_error as e:
                         self.logger.error(e)
-                    # TODO: Retry after a delay
                         self.sleep_timer.sleep_in_rounds()
                         self.initialize_new_email()
 
