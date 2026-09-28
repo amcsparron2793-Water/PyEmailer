@@ -24,6 +24,7 @@ class PyEmailerTheSandman(TheSandman):
 
     def __init__(self, sleep_time_seconds=None, **kwargs):
         super().__init__(sleep_time_seconds, **kwargs)
+        self._init_sleep_time_given = self.sleep_time
         self.snooze_expiration_limit_hours = kwargs.get('snooze_expiration_limit_hours',
                                                         self.__class__.DEFAULT_SNOOZE_EXPIRATION_LIMIT_HOURS)
 

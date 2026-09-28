@@ -29,3 +29,12 @@ class UnrecognizedEmailError(com_error):
     def __init__(self, err_msg: Optional[str] = None, **kwargs):
         self.err_msg = err_msg
         super().__init__(self.err_msg, **kwargs)
+
+
+class RPCDownError(com_error):
+    def __init__(self, err_msg: Optional[str] = None, sleep_time=-1, **kwargs):
+        self.err_msg = err_msg
+        self.sleep_time = sleep_time
+        if not self.err_msg:
+            self.err_msg = f"The RPC server is unavailable. Retrying in {self.sleep_time} seconds"
+        super().__init__(self.err_msg, **kwargs)
