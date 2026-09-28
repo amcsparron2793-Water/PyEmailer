@@ -5,10 +5,11 @@ py_emailer_ajm.py
 install win32 with pip install pywin32
 """
 # imports
+from __future__ import annotations
 from os import environ, getenv
 from os.path import isfile, join, isdir
 from tempfile import gettempdir
-from typing import Optional, Union, Any
+from typing import Optional, Callable
 
 # install win32 with pip install pywin32
 import win32com.client as win32
@@ -108,6 +109,46 @@ class EmailerInitializer:
     def _html_to_py_breaks(text: str):
         return text.replace('<br>', '\n')
 
+    def _handle_com_error(self, err: com_error, **kwargs):
+        raise_other_error = kwargs.get('raise_other_error', True)
+        rpc_down_string = "The RPC server is unavailable"
+        try:
+            is_rpc_down_error = rpc_down_string in err.args[1]
+        except (IndexError, TypeError):
+            is_rpc_down_error = rpc_down_string in err.args[0]
+
+        if is_rpc_down_error:
+            self._handle_rpc_down_com_error(err, **kwargs)
+        else:
+            self.logger.exception(err)
+            if raise_other_error:
+                raise err
+            return
+
+    def _handle_rpc_down_com_error(self, err: com_error, **kwargs):
+        called_from = kwargs.get('called_from', 'unknown')
+        method_to_retry = getattr(self, called_from, None)
+        retry = kwargs.get('retry', False)
+
+        self.sleep_timer.sleep_time = 30
+        try:
+            raise RPCDownError(sleep_time=self.sleep_timer.sleep_time) from None
+        except RPCDownError as e:
+            self.logger.error(e)
+            self.sleep_timer.sleep_in_rounds()
+            if retry and isinstance(method_to_retry, Callable):
+                method_to_retry()
+            elif retry and not isinstance(method_to_retry, Callable):
+                raise ValueError(f"Invalid method_to_retry: {method_to_retry}")
+            return
+
+    def _reinit_sleep_time_value(self):
+        sleep_time_init_value = getattr(self.sleep_timer, '_init_sleep_time_given',
+                                        self.sleep_timer.__class__.DEFAULT_SLEEP_TIME_SECONDS)
+        if sleep_time_init_value != self.sleep_timer.sleep_time:
+            self.logger.debug(f"resetting sleep timer to: {sleep_time_init_value}")
+            self.sleep_timer.sleep_time = sleep_time_init_value
+
     def initialize_emailer_logger(self, logger: Logger = None, **kwargs):
         if logger:
             # If a real logger instance was provided (has .info), use it directly
@@ -132,35 +173,21 @@ class EmailerInitializer:
         if hasattr(self, 'email_app') and self.email_app is not None:
             try:
                 # if not self._has_errored:
-                raise com_error(-2147023174, "The RPC server is unavailable.", None, None)
+                # raise com_error(-2147023174, "The RPC server is unavailable.", None, None)
                 self.email = Msg(self.email_app.CreateItem(0), logger=self.logger)
             except com_error as e:
-                if len(e.args) < 2:
-                    raise e
-                if "The RPC server is unavailable" in e.args[1]:
-                    self.sleep_timer.sleep_time = 30
-                    try:
-                        raise RPCDownError(sleep_time=self.sleep_timer.sleep_time) from None
-                    except RPCDownError as e:
-                        self.logger.error(e)
-                        self.sleep_timer.sleep_in_rounds()
-                        self.initialize_new_email()
-
-            sleep_time_init_value = getattr(self.sleep_timer, '_init_sleep_time_given',
-                                            self.sleep_timer.__class__.DEFAULT_SLEEP_TIME_SECONDS)
-            if sleep_time_init_value != self.sleep_timer.sleep_time:
-                self.logger.debug(f"resetting sleep timer to: {sleep_time_init_value}")
-                self.sleep_timer.sleep_time = sleep_time_init_value
+                self._handle_com_error(err=e)
+            self._reinit_sleep_time_value()
             return self.email
         raise AttributeError("email_app is not defined. Run 'initialize_email_item_app_and_namespace' first")
 
     def initialize_email_item_app_and_namespace(self):
+        email_app, namespace, email = None, None, None
         try:
             email_app, namespace = self._setup_email_app_and_namespace()
             email = self.initialize_new_email()
         except com_error as e:
-            self.logger.error(e, exc_info=True)
-            raise e
+            self._handle_com_error(err=e)
         return email_app, namespace, email
 
     def _setup_email_app_and_namespace(self):
@@ -471,7 +498,7 @@ class PyEmailer(EmailerInitializer):
                 else:
                     return
         except com_error as e:
-            self.logger.error(e, exc_info=True)
+            self._handle_com_error(e)
         except NoConsoleScreenBufferError as e:
             # TODO: slated for removal
             # this is here purely as a compatibility thing, to be taken out later.
