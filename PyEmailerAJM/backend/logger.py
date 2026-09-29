@@ -2,7 +2,6 @@ from logging import Filter, DEBUG, ERROR, Handler, FileHandler, StreamHandler, L
 from typing import Union, TYPE_CHECKING
 
 from EasyLoggerAJM import EasyLogger
-from EasyLoggerAJM.backend import LogFilePrepError
 from EasyLoggerAJM.logger_parts import OutlookEmailHandler, StreamHandlerIgnoreExecInfo
 from PyEmailerAJM.msg import Msg
 
@@ -56,6 +55,8 @@ class PyEmailerOutlookEmailHandler(OutlookEmailHandler):
         msg_moved = real_err_tuple[0] == self.__class__.MOVED_OR_DELETED_MSG_ERR_CODE
         if msg_moved:
             return
+    # FIXME: msg_moved bug is d/t the finally block in emit always resending even when it isn't needed.
+    #  This is a workaround.
 
 
 class PyEmailerLogger(EasyLogger):
