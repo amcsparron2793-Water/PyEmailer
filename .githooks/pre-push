@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+
+set -e
+
+PROJECT_NAME="PyEmailerAJM"
+VERSION_FILE="$PROJECT_NAME/_version.py"
+
+if [ ! -f "$VERSION_FILE" ]; then
+    echo "ERROR: Version file not found: $VERSION_FILE"
+    exit 1
+fi
+
+PACKAGE_VERSION=$(VERSION_FILE="$VERSION_FILE" python - <<'PY'
+import os
+import re
+from pathlib import Path
+
+version_file = Path(os.environ["VERSION_FILE"])
+text = version_file.read_text(encoding="utf-8")
+
+match = re.search(r"__version__\s*=\s*['\"]([^'\"]+)['\"]", text)
+
+if not match:
+    raise SystemExit(f"Could not find __version__ in {version_file}")
+
+print(match.group(1))
+PY
+)
+
+while read local_ref local_sha remote_ref remote_sha
+do
+    case "$remote_ref" in
+        refs/tags/*)
+            TAG_NAME="${remote_ref#refs/tags/}"
+            TAG_VERSION="${TAG_NAME#v}"
+
+            if [ "$TAG_VERSION" != "$PACKAGE_VERSION" ]; then
+                echo "ERROR: Refusing to push tag '$TAG_NAME'."
+                echo ""
+                echo "Version mismatch:"
+                echo "  $VERSION_FILE: $PACKAGE_VERSION"
+                echo "  Git tag:       $TAG_NAME"
+                echo ""
+                echo "Use one of these tags instead:"
+                echo "  v$PACKAGE_VERSION"
+                echo "  $PACKAGE_VERSION"
+                echo "Or update version in file."
+                exit 1
+            fi
+            ;;
+    esac
+done
+
+exit 0
