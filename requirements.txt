@@ -6,5 +6,5 @@ pywin32==311
 questionary==2.0.1
 
 ColorizerAJM~=0.6
-EasyLoggerAJM==1.9.9.3
+EasyLoggerAJM==1.9.9.4
 TheSandmanAJM==0.1.1
