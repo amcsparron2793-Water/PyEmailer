@@ -43,7 +43,7 @@ class TestPyEmailerLogger(unittest.TestCase):
         self.logger.initialize_logger(logger=mock_logger)
         self.assertFalse(mock_logger.propagate)
 
-    @patch('PyEmailerAJM.backend.logger.OutlookEmailHandler')
+    @patch('PyEmailerAJM.backend.logger.PyEmailerOutlookEmailHandler')
     def test_setup_email_handler(self, mock_email_handler):
         mock_email_handler_instance = mock_email_handler.return_value
         mock_email_handler_instance.level = logging.ERROR
